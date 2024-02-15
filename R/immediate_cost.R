@@ -1,4 +1,3 @@
-
 #' h.t Function
 #' 
 #' Calculate some cost based on inputs.
