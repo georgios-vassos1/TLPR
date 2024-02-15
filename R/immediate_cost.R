@@ -26,11 +26,10 @@ h.t <- function(env, SIt, SJt, alpha=NULL) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
-#' @export
 #' @import Matrix
 carrier_capacity <- function(env) {
   ## Capacity constraints
-  
+
   # Strategic carriers
   A1 <- spMatrix(ncol = env$nvars, nrow = env$nCS)
   for (k in env$CS) {
@@ -38,7 +37,7 @@ carrier_capacity <- function(env) {
   }
   rhs1 <- env$Cb
   sns1 <- rep("<", env$nCS)
-  
+
   # Spot carriers
   A2 <- spMatrix(ncol = env$nvars, nrow = env$nCO)
   for (k in seq(env$nCO)) {
@@ -46,7 +45,7 @@ carrier_capacity <- function(env) {
   }
   rhs2 <- env$Co
   sns2 <- rep("<", env$nCO)
-  
+
   list('A' = rbind(A1, A2), 'b' = c(rhs1, rhs2), 's' = c(sns1, sns2))
 }
 
@@ -56,7 +55,6 @@ carrier_capacity <- function(env) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
-#' @export
 #' @import Matrix
 storage_limit <- function(env, ...) {
   # Storage constrains
@@ -69,7 +67,7 @@ storage_limit <- function(env, ...) {
   }
   rhs <- NULL
   sns <- rep("<", env$nJ)
-  
+
   list('A' = A, 'b' = rhs, 's' = sns)
 }
 
@@ -79,7 +77,6 @@ storage_limit <- function(env, ...) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
-#' @export
 #' @import Matrix
 positivity_ <- function(env, ...) {
   # Positivity constrains
@@ -92,7 +89,7 @@ positivity_ <- function(env, ...) {
   }
   rhs <- NULL
   sns <- rep("<", env$nI)
-  
+
   list('A' = A, 'b' = rhs, 's' = sns)
 }
 
@@ -102,14 +99,13 @@ positivity_ <- function(env, ...) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
-#' @export
 #' @import Matrix
 order_quantity <- function(env, ...) {
   # Order quantity constraint
   A   <- spMatrix(ncol = env$nvars, nrow = 1L, i = rep(1L, env$nvars), j = seq(env$nvars), x = rep(1L, env$nvars))
   rhs <- NULL
   sns <- "="
-  
+
   list('A' = A, 'b' = rhs, 's' = sns)
 }
 
@@ -124,7 +120,7 @@ order_quantity <- function(env, ...) {
 create_model <- function(env, ...) {
   args <- list(...)
   if (constraints <- is.null(args[["constraints"]])) {
-    constraints <- c('carrier_capacity', 'storage_limit', 'positivity_', 'order_quantity')
+    constraints <- c(carrier_capacity, storage_limit, positivity_, order_quantity)
   }
 
   constr_list <- lapply(constraints, do.call, args = list(env))
