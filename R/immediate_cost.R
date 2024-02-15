@@ -26,6 +26,8 @@ h.t <- function(env, SIt, SJt, alpha=NULL) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
+#' @export
+#' @import Matrix
 carrier_capacity <- function(env) {
   ## Capacity constraints
   
@@ -54,6 +56,8 @@ carrier_capacity <- function(env) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
+#' @export
+#' @import Matrix
 storage_limit <- function(env, ...) {
   # Storage constrains
   A <- spMatrix(ncol = env$nvars, nrow = env$nJ)
@@ -75,6 +79,8 @@ storage_limit <- function(env, ...) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
+#' @export
+#' @import Matrix
 positivity_ <- function(env, ...) {
   # Positivity constrains
   A <- spMatrix(ncol = env$nvars, nrow = env$nI)
@@ -96,6 +102,8 @@ positivity_ <- function(env, ...) {
 #' 
 #' @param env The environment variable.
 #' @return A list with constraints.
+#' @export
+#' @import Matrix
 order_quantity <- function(env, ...) {
   # Order quantity constraint
   A   <- spMatrix(ncol = env$nvars, nrow = 1L, i = rep(1L, env$nvars), j = seq(env$nvars), x = rep(1L, env$nvars))
@@ -173,6 +181,7 @@ random_assignment <- function(n, k, obj_, ...) {
 #' @param ... Additional arguments.
 #' @return The result of the optimization.
 #' @export
+#' @import gurobi
 optimal_assignment <- function(model, obj_, rhs_, params = list(OutputFlag = 0L), ...) {
   # Update dynamic parameters
   model$obj <- obj_
