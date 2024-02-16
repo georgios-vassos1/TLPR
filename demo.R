@@ -9,12 +9,18 @@ policy <- list(
   "random" = random_assignment
 )
 npi <- length(policy)
+
 args <- list(
   model = model,
   obj_ = NULL,
   rhs_ = NULL,
   n = NULL,
   k = env$n_pairs
+)
+
+exog <- list(
+  "Q" = list("func"=rpois, "params"=list('n'=env$tau*env$nI, 'lambda'=40L)),
+  "D" = list("func"=rpois, "params"=list('n'=env$tau*env$nI, 'lambda'=40L))
 )
 
 get_from_routes(env)
@@ -25,10 +31,6 @@ costs <- matrix(NA, nrow = env$tau, ncol = npi*N)
 i <- 1L
 while (i <= N) {
   print(i)
-  exog <- list(
-    "Q" = list("func"=rpois, "params"=list('n'=env$tau*env$nI, 'lambda'=40L)),
-    "D" = list("func"=rpois, "params"=list('n'=env$tau*env$nI, 'lambda'=40L))
-  )
   result <- simulate_system(env, policy, args, exog)
   if (result$status) {
     costs[,(i-1L)*npi+seq(npi)] <- result$cost
