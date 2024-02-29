@@ -35,7 +35,7 @@ carrier_capacity <- function(env) {
   for (k in env$CS) {
     A1[k, env$nLc[k]+seq(env$nLc[k+1L])] <- 1L
   }
-  rhs1 <- env$Cb
+  rhs1 <- NULL # env$Cb
   sns1 <- rep("<", env$nCS)
 
   # Spot carriers
@@ -43,7 +43,7 @@ carrier_capacity <- function(env) {
   for (k in seq(env$nCO)) {
     A2[k, env$nL_+(k-1L)*env$nL+seq(env$nL)] <- 1L
   }
-  rhs2 <- env$Co
+  rhs2 <- NULL # env$Co
   sns2 <- rep("<", env$nCO)
 
   list('A' = rbind(A1, A2), 'b' = c(rhs1, rhs2), 's' = c(sns1, sns2))
@@ -62,7 +62,7 @@ storage_limit <- function(env, ...) {
   for (j in seq(env$nJ)) {
     idx <- (seq(env$nJ) - 1L)*env$nI
     msk <- which(apply(outer(env$L_, idx + j, '=='), 1L, any))
-    idx <- env$nL_ + c(outer(idx, (env$CS - 1L)*env$nL, '+')) + j
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + j
     A[j, c(msk, idx)] <- 1L
   }
   rhs <- NULL
@@ -84,7 +84,7 @@ positivity_ <- function(env, ...) {
   for (i in seq(env$nI)) {
     idx <- (i - 1L)*env$nJ + seq(env$nJ)
     msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
-    idx <- env$nL_ + c(outer(idx, (env$CS - 1L)*env$nL, '+'))
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+'))
     A[i, c(msk, idx)] <- 1L
   }
   rhs <- NULL
@@ -206,7 +206,9 @@ example_demo <- function(env, ...) {
   # Set the model
   model <- create_model(env)
   # Optimization
-  result <- optimal_assignment(model, c(env$CTb, env$CTo[1L,]), c(env$R - S.J, S.I + Q, A.t))
+  obj_ <- c(env$CTb, env$CTo[1L,])
+  rhs_ <- c(rep(10L, env$nCS), rep(50L, env$nCO), env$R - S.J, S.I + Q, A.t)
+  result <- optimal_assignment(model, obj_, rhs_)
   list(
     "status"     = result$status,
     "assignment" = result$x,
