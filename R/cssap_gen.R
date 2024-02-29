@@ -72,7 +72,7 @@ input_configuration <- function(env, ...) {
     env$nP  <-  1L
     env$nCS <- ifelse(is.null(args[["nCS"]]),   2L, args[["nCS"]])
   }
-  
+
   env$nL <- env$nI * env$nJ
   env$I_ <- seq(env$nI)
   env$J_ <- seq(env$nJ)
@@ -116,15 +116,21 @@ initialize <- function(env, ...) {
   # Transportation cost of strategic carriers
   env$CTb <- rnorm(env$nL_, 12.0, 4.0)
   # Transportation cost of spot carriers
-  env$nCO <- env$nCS
-  env$CTo <- pmax(matrix(rnorm(env$tau * env$nCO * env$nL, 20.0, 10.0), nrow = env$tau), 5.0)
-  # Total number of source and lane pairs
-  env$n_pairs <- env$nL_ + env$nCO * env$nL
+  if (is.null(env$nCO <- args[["nCO"]])) {
+    env$nCO <- 1L
+  }
+  if (is.null(env$CTo <- args[["CTo"]])) {
+    env$CTo <- pmax(matrix(rnorm(env$tau * env$nCO * env$nL, 20.0, 10.0), nrow = env$tau), 5.0)
+  }
   # Capacity limits
-  env$Cb <- rep(rate, env$nCS)
-  env$Co <- 5L * env$Cb
+  if (is.null(env$Cb <- args[["Cb"]])) {
+    env$Cb <- matrix(sample(env$R%/%rate, env$tau * env$nCS, replace = TRUE), nrow = env$tau)
+  }
+  if (is.null(env$Co <- args[["Co"]])) {
+    env$Co <- matrix(rep((env$R * env$nI) %/% env$nCO, env$tau*env$nCO), ncol = env$nCO)
+  }
   # Number of decision variables
-  env$nvars <- env$nL_ + env$nCS * env$nL
+  env$nvars <- env$nL_ + ncol(env$CTo)
 }
 
 #' Generate CSSAP
@@ -136,9 +142,9 @@ initialize <- function(env, ...) {
 #' @param ... Additional arguments.
 #' @export
 generate_cssap <- function(env, tau=12L, ...) {
-  input_configuration(env, tau=tau)
+  do.call(input_configuration, list(env, 'tau'=tau, ...))
   simulate_auction(env)
-  initialize(env)
+  do.call(initialize, list(env, ...))
 }
 
 #' Print Info
