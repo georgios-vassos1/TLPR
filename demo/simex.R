@@ -1,7 +1,7 @@
 library(TLPR)
 
 env <- new.env()
-generate_cssap(env, tau = 12L)
+generate_cssap(env, tau = 12L, nCO = 1L)
 model <- create_model(env)
 
 policy <- list(
@@ -15,7 +15,7 @@ args <- list(
   obj_ = NULL,
   rhs_ = NULL,
   n = NULL,
-  k = env$n_pairs
+  k = env$nvars
 )
 
 exog <- list(
