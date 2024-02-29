@@ -12,7 +12,7 @@ get_from_routes <- function(env, ...) {
     # All indices in the bids that start from origin i
     msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
     # Adding spot indices that start from origin i
-    idx <- env$nL_ + c(outer(idx, (env$CS-1L)*env$nL, '+'))
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO)-1L)*env$nL, '+'))
     # Store result
     env$from_i[[i]] <- c(msk, idx)
   }
@@ -32,7 +32,7 @@ get_to_routes <- function(env, ...) {
     # All indices in the bids that go to destination j
     msk <- which(apply(outer(env$L_, idx + j, '=='), 1L, any))
     # Adding spot indices that go to destination j
-    idx <- env$nL_ + c(outer(idx, (env$CS - 1L)*env$nL, '+')) + j
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + j
     # Store result
     env$to_j[[j]] <- c(msk, idx)
   }
@@ -80,7 +80,7 @@ simulate_system <- function(env, policy, args, exog, ...) {
     args[["n"]]    <- q[t]
 
     for (pdx in seq_along(policy)) {
-      args[["rhs_"]] <- c(env$R - S.J[idx,pdx], S.I[idx,pdx] + Q[idx], q[t])
+      args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R - S.J[idx,pdx], S.I[idx,pdx] + Q[idx], q[t])
 
       optx <- do.call(policy[[pdx]], args)
       if (!is.null(optx[["status"]])) {
