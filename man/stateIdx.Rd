@@ -2,7 +2,7 @@
 % Please edit documentation in R/dp.R
 \name{stateIdx}
 \alias{stateIdx}
-\title{All possible allocations of n containers to k routes}
+\title{Convert state variable to state index}
 \usage{
 stateIdx(env, Si, Sj, max.S, weights, ...)
 }
@@ -21,5 +21,5 @@ stateIdx(env, Si, Sj, max.S, weights, ...)
 A numeric vector representing state index
 }
 \description{
-All possible allocations of n containers to k routes
+Convert state variable to state index
 }
