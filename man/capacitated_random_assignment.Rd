@@ -7,19 +7,23 @@
 capacitated_random_assignment(n, k, obj_, x, ...)
 }
 \arguments{
-\item{n}{Total capacity.}
+\item{n}{Integer, number of items.}
 
-\item{k}{Number of sources.}
+\item{k}{Integer, number of bins.}
 
-\item{obj_}{Objective coefficients.}
+\item{obj_}{Numeric vector, objective coefficients.}
 
-\item{x}{Capacity vector.}
-
-\item{...}{Additional arguments.}
+\item{x}{Numeric vector, bin capacities.}
 }
 \value{
-A list containing the assignment vector and objective value.
+List with 'x' (allocation) and 'objval' (objective value).
 }
 \description{
-Generate a random assignment within capacity constraints.
+Randomly assigns items to bins while respecting capacity constraints.
+}
+\examples{
+# Assign 10 items to 3 bins with capacities 5, 5, and 10 respectively
+cap_assignment <- capacitated_random_assignment(10, 3, c(1, 2, 3), c(5, 5, 10))
+cap_assignment$x
+cap_assignment$objval
 }
