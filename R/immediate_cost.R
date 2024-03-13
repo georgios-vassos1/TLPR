@@ -117,10 +117,10 @@ order_quantity <- function(env, ...) {
 #' @param ... Additional arguments.
 #' @return A model.
 #' @export
-create_model <- function(env, ...) {
+create_model <- function(env, Idx = seq(4L), ...) {
   args <- list(...)
   if (constraints <- is.null(args[["constraints"]])) {
-    constraints <- c(carrier_capacity, storage_limit, positivity_, order_quantity)
+    constraints <- c(carrier_capacity, storage_limit, positivity_, order_quantity)[Idx]
   }
 
   constr_list <- lapply(constraints, do.call, args = list(env))
@@ -153,7 +153,10 @@ create_model <- function(env, ...) {
 #' @export
 random_assignment <- function(n, k, obj_, ...) {
   if (n == 0L) {
-    return(numeric(k))
+    return(list(
+      "x" = numeric(k),
+      "objval" = 0.0
+    ))
   }
   # Generate n-1 random integers between 1 and n-1
   allocation <- sort(sample(n-1L, k-1L, replace = TRUE))
@@ -163,6 +166,48 @@ random_assignment <- function(n, k, obj_, ...) {
   list(
     "x" = x,
     "objval" = c(obj_ %*% x)
+  )
+}
+
+#' Capacitated Random Assignment
+#' 
+#' Randomly assigns items to bins while respecting capacity constraints.
+#' 
+#' @param n Integer, number of items.
+#' @param k Integer, number of bins.
+#' @param obj_ Numeric vector, objective coefficients.
+#' @param x Numeric vector, bin capacities.
+#' @return List with 'x' (allocation) and 'objval' (objective value).
+#' @examples
+#' # Assign 10 items to 3 bins with capacities 5, 5, and 10 respectively
+#' cap_assignment <- capacitated_random_assignment(10, 3, c(1, 2, 3), c(5, 5, 10))
+#' cap_assignment$x
+#' cap_assignment$objval
+#' @export
+capacitated_random_assignment <- function(n, k, obj_, x, ...) {
+  if (n == 0L) {
+    return(list(
+      "x" = numeric(k),
+      "objval" = 0.0
+    ))
+  }
+
+  allocation <- numeric(k)
+  residue <- min(n, sum(x))
+
+  while (residue > 0L) {
+    for (i in seq(k)) {
+      a_i <- sample(min(x[i], residue), 1L)
+      allocation[i] <- allocation[i] + a_i
+      x[i] <- max(x[i] - a_i, 0L)
+      residue <- residue - a_i
+    }
+  }
+
+  # Return structure
+  list(
+    "x" = allocation,
+    "objval" = c(obj_ %*% allocation)
   )
 }
 
