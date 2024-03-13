@@ -68,12 +68,13 @@ input_configuration <- function(env, ...) {
     env$tau <- ifelse(is.null(args[["tau"]]), 12L, args[["tau"]])
     env$nI  <- ifelse(is.null(args[["nI"]]),   2L, args[["nI"]])
     env$nJ  <- ifelse(is.null(args[["nJ"]]),   2L, args[["nJ"]])
-    env$nB  <- ifelse(is.null(args[["nB"]]),   3L, args[["nB"]])
+    env$nL  <- env$nI * env$nJ
+    ncombs  <- sum(choose(env$nL,seq(env$nL)))
+    env$nB  <- min(ifelse(is.null(args[["nB"]]), sample(ncombs, 1L), args[["nB"]]), ncombs)
     env$nP  <-  1L
-    env$nCS <- ifelse(is.null(args[["nCS"]]),   2L, args[["nCS"]])
+    env$nCS <- ifelse(is.null(args[["nCS"]]), 2L, args[["nCS"]])
   }
 
-  env$nL <- env$nI * env$nJ
   env$I_ <- seq(env$nI)
   env$J_ <- seq(env$nJ)
   env$CS <- seq(env$nCS)
@@ -106,6 +107,10 @@ initialize <- function(env, ...) {
     rate <- 10L
   }
   env$R  <- 10L*rate
+  # Minimum transportation cost
+  if (is.null(min.TC <- args[["min.TC"]])) {
+    min.TC <- 1.0
+  }
   # Reset strategic carrier information based on bidding results
   env$CS  <- seq_along(env$winner)
   env$nCS <- length(env$CS)
@@ -114,7 +119,7 @@ initialize <- function(env, ...) {
   env$L_  <- unlist(lapply(env$CS, function(idx) env$B[env$winner[[idx]]]))
   env$nL_ <- length(env$L_)
   # Transportation cost of strategic carriers
-  env$CTb <- rnorm(env$nL_, 12.0, 4.0)
+  env$CTb <- pmax(rnorm(env$nL_, 12.0, 4.0), min.TC)
   # Transportation cost of spot carriers
   if (is.null(env$nCO <- args[["nCO"]])) {
     env$nCO <- 1L
@@ -124,10 +129,10 @@ initialize <- function(env, ...) {
   }
   # Capacity limits
   if (is.null(env$Cb <- args[["Cb"]])) {
-    env$Cb <- matrix(sample(env$R%/%rate, env$tau * env$nCS, replace = TRUE), nrow = env$tau)
+    env$Cb <- matrix(sample(rate, env$tau * env$nCS, replace = TRUE), nrow = env$tau)
   }
   if (is.null(env$Co <- args[["Co"]])) {
-    env$Co <- matrix(rep((env$R * env$nI) %/% env$nCO, env$tau*env$nCO), ncol = env$nCO)
+    env$Co <- matrix(rep((rate * env$nI) %/% env$nCO, env$tau*env$nCO), ncol = env$nCO)
   }
   # Number of decision variables
   env$nvars <- env$nL_ + ncol(env$CTo)

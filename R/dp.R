@@ -56,7 +56,7 @@ get_scenario_space <- function(Q, D, W, hmg=TRUE) {
     matrix(W$prob[idx[,env$nI+env$nJ+seq(len_spot)]], ncol = len_spot)), 1L, prod)
 }
 
-#' All possible allocations of n containers to k routes
+#' Convert state variable to state index
 #' 
 #' @param env Environment object containing relevant data
 #' @param Si Value representing some state information
