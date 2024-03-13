@@ -7,12 +7,12 @@
 get_from_routes <- function(env, ...) {
   env$from_i <- vector(mode = 'list', length = env$nI)
   for (i in seq(env$nI)) {
-    # All possible routes from origin i to the destinations
-    idx <- (i-1L)*env$nJ + seq(env$nJ)
-    # All indices in the bids that start from origin i
-    msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
-    # Adding spot indices that start from origin i
-    idx <- env$nL_ + c(outer(idx, (seq(env$nCO)-1L)*env$nL, '+'))
+    # All possible routes from all origins to destination j
+    idx <- (seq(env$nI)-1L)*env$nJ
+    # All indices in the bids that go to destination j
+    msk <- which(apply(outer(env$L_, idx + i, '=='), 1L, any))
+    # Adding spot indices that go to destination j
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + i
     # Store result
     env$from_i[[i]] <- c(msk, idx)
   }
@@ -27,12 +27,12 @@ get_from_routes <- function(env, ...) {
 get_to_routes <- function(env, ...) {
   env$to_j <- vector(mode = 'list', length = env$nJ)
   for (j in seq(env$nJ)) {
-    # All possible routes from all origins to destination j
-    idx <- (seq(env$nJ)-1L)*env$nI
-    # All indices in the bids that go to destination j
-    msk <- which(apply(outer(env$L_, idx + j, '=='), 1L, any))
-    # Adding spot indices that go to destination j
-    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + j
+    # All possible routes from origin i to the destinations
+    idx <- (j-1L)*env$nI + seq(env$nI)
+    # All indices in the bids that start from origin i
+    msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
+    # Adding spot indices that start from origin i
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO)-1L)*env$nL, '+'))
     # Store result
     env$to_j[[j]] <- c(msk, idx)
   }
@@ -57,7 +57,7 @@ sample_exogenous_state <- function(func, params, ...) {
 #' @param args Arguments for policy functions.
 #' @param exog Exogenous states for simulation.
 #' @export
-simulate_system <- function(env, policy, args, exog, ...) {
+simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ...) {
   npi <- length(policy)
   # Simulation metrics
   S.I  <- matrix(0.0, nrow = (env$tau+1L)*env$nI, ncol = npi)
@@ -74,13 +74,15 @@ simulate_system <- function(env, policy, args, exog, ...) {
     idx <- (t-1L)*env$nI+env$I_
     jdx <- (t-1L)*env$nJ+env$J_
 
-    q[t] <- round(mean(S.I[idx,] + Q[idx]))
+    q[t] <- min(sample(env$Cb[t,]+env$Co[t,], 1L), colSums(S.I[idx,,drop=F]+Q[idx]))
 
     args[["obj_"]] <- c(env$CTb, env$CTo[t,])
     args[["n"]]    <- q[t]
+    args[["x"]]    <- c(env$Cb[t,], env$Co[t,])
 
     for (pdx in seq_along(policy)) {
-      args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R - S.J[idx,pdx], S.I[idx,pdx] + Q[idx], q[t])
+      args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q[t])[RHSdx]
+      # args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], q[t])
 
       optx <- do.call(policy[[pdx]], args)
       if (!is.null(optx[["status"]])) {
@@ -89,14 +91,22 @@ simulate_system <- function(env, policy, args, exog, ...) {
           return(list("status" = FALSE))
         }
       }
-      a.t  <- optx$x
-      cost[t,pdx] <- h.t(env, S.I[idx,pdx], S.J[jdx,pdx], env$alpha) + optx$objval
+      a.t <- optx$x
+      cost[t,pdx] <- optx$objval + h.t(env, S.I[idx,pdx], S.J[jdx,pdx], env$alpha)
 
-      X.I[idx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
-      X.J[jdx,pdx] <- unlist(lapply(env$to_j,   function(k) sum(a.t[k])))
+      # X.I[idx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
+      # X.J[jdx,pdx] <- unlist(lapply(env$to_j, function(k) sum(a.t[k])))
+      Xtmp <- cbind2(env$L[c(env$L_,seq(env$nL))[unlist(env$from_i)],], a.t[unlist(env$from_i)])
+      X.I[idx,pdx] <- unname(tapply(Xtmp[,3L], Xtmp[,1L], sum))
+      X.J[jdx,pdx] <- unname(tapply(Xtmp[,3L], Xtmp[,2L], sum))
+
+      # This term is an heuristic to compensate for the error caused by eliminating the stock constraint.
+      #   X.I might be larger than the stock, this can be corrected in the transition
+      #   X.J cannot be corrected easily to exactly match the volume that can be assigned
+      cterm <- rep(round(sum(pmax(X.I[idx,pdx] - S.I[idx,pdx] - Q[idx], 0L)) / env$nJ), env$nJ) * correction
 
       S.I[idx+env$nI,pdx] <- pmin(pmax(S.I[idx,pdx] + Q[idx] - X.I[idx,pdx], 0L), env$R)
-      S.J[jdx+env$nJ,pdx] <- pmin(S.J[jdx,pdx] - D[jdx] + X.J[jdx,pdx], env$R)
+      S.J[jdx+env$nJ,pdx] <- pmax(pmin(S.J[jdx,pdx] - D[jdx] + X.J[jdx,pdx] - cterm, env$R), -env$R)
     }
   }
   list(
