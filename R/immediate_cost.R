@@ -33,7 +33,7 @@ carrier_capacity <- function(env) {
   # Strategic carriers
   A1 <- spMatrix(ncol = env$nvars, nrow = env$nCS)
   for (k in env$CS) {
-    A1[k, env$nLc[k]+seq(env$nLc[k+1L])] <- 1L
+    A1[k, sum(env$nLc[1L:k])+seq(env$nLc[k+1L])] <- 1L
   }
   rhs1 <- NULL # env$Cb
   sns1 <- rep("<", env$nCS)
