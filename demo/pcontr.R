@@ -51,8 +51,8 @@ portfolio_evaluation_data <- function(env, A_, assignments) {
     action  = rep(rep(A_, each = env$nvars), env$tau),
     carrier = carriers[,1L],
     lane    = lanes,
-    origin  = env$L[lanes,1L],
-    destination = env$L[lanes,2L]+env$nI,
+    origin  = env$L[lanes,2L],
+    destination = env$L[lanes,1L]+env$nI,
     assignment  = assignments))
   # Add capacity and cost information.
   dt[, capacity := cbind2(env$Cb,env$Co)[t,carrier], by = .(t, carrier)]
