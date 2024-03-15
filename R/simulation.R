@@ -96,11 +96,8 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
       cost[t,pdx] <- optx$objval + h.t(env, S.I[idx,pdx], S.J[jdx,pdx], env$alpha)
       allocation[(t-1L)*env$nvars+seq(env$nvars),pdx] <- optx$x
 
-      # X.I[idx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
-      # X.J[jdx,pdx] <- unlist(lapply(env$to_j, function(k) sum(a.t[k])))
-      Xtmp <- cbind2(env$L[c(env$L_,seq(env$nL))[unlist(env$from_i)],], a.t[unlist(env$from_i)])
-      X.I[idx,pdx] <- unname(tapply(Xtmp[,3L], Xtmp[,1L], sum))
-      X.J[jdx,pdx] <- unname(tapply(Xtmp[,3L], Xtmp[,2L], sum))
+      X.I[idx,pdx] <- unlist(lapply(env$to_j, function(k) sum(a.t[k])))
+      X.J[jdx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
 
       # This term is an heuristic to compensate for the error caused by eliminating the stock constraint.
       #   X.I might be larger than the stock, this can be corrected in the transition
