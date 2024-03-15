@@ -65,6 +65,7 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
   X.I  <- matrix(0.0, nrow = env$tau*env$nI, ncol = npi)
   X.J  <- matrix(0.0, nrow = env$tau*env$nJ, ncol = npi)
   cost <- matrix(NA, nrow = env$tau, ncol = npi)
+  allocation <- matrix(NA, env$tau * env$nvars, ncol = npi)
   q    <- numeric(env$tau)
   # Exogenous states
   Q <- sample_exogenous_state(exog$Q$func, exog$Q$params)
@@ -93,6 +94,7 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
       }
       a.t <- optx$x
       cost[t,pdx] <- optx$objval + h.t(env, S.I[idx,pdx], S.J[jdx,pdx], env$alpha)
+      allocation[(t-1L)*env$nvars+seq(env$nvars),pdx] <- optx$x
 
       # X.I[idx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
       # X.J[jdx,pdx] <- unlist(lapply(env$to_j, function(k) sum(a.t[k])))
@@ -110,7 +112,9 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
     }
   }
   list(
-    "cost" = cost, "S.I" = S.I, "S.J" = S.J, "X.I" = X.I, "X.J" = X.J, "Q" = Q, "D" = D, "status" = TRUE
+    "cost" = cost, "allocation" = allocation, 
+    "S.I" = S.I, "S.J" = S.J, "X.I" = X.I, "X.J" = X.J, "Q" = Q, "D" = D, 
+    "status" = TRUE
   )
 }
 
