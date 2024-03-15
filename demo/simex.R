@@ -1,7 +1,7 @@
 library(TLPR)
 
 env <- new.env()
-generate_cssap(env, rate = 10.0, tau = 12L, nCS = 5L, nCO = 1L, nB = 3L, nI = 4L, nJ = 3L)
+generate_cssap(env, rate = 10.0, tau = 12L, nCS = 5L, nCO = 1L, nB = 4L, nI = 2L, nJ = 2L)
 
 env$alpha <- c(rep(1.0, env$nI), rep(c(1.0, 2.0), each = env$nJ))
 
@@ -40,7 +40,7 @@ exog <- list(
 get_from_routes(env)
 get_to_routes(env)
 
-N <- 50L
+N <- 30L
 costs <- matrix(NA, nrow = env$tau, ncol = npi*N)
 i <- 1L
 while (i <= N) {
