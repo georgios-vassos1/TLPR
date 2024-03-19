@@ -59,7 +59,9 @@ eval_stateless_portfolio <- function(env, A_, plot = FALSE) {
 #' 
 #' @return A list containing the states, cost, and allocation of the portfolio contract.
 #' 
-#' @details This function evaluates a portfolio contract considering state-dependent constraints. It computes the cost and allocation for each asset value provided in the vector \code{A_} and based on the given state constraints. It also updates the state vector according to the transactions made during each period.
+#' @details This function evaluates a portfolio contract considering state-dependent constraints. 
+#' It computes the cost and allocation for each asset value provided in the vector \code{A_} and based on the given state constraints. 
+#' It also updates the state vector according to the transactions made during each period.
 #' 
 #' @export
 eval_portfolio <- function(env, A_, S0, Q, D, ...) {
@@ -123,7 +125,9 @@ eval_portfolio <- function(env, A_, S0, Q, D, ...) {
 #' 
 #' @return A list containing the cost and allocation of the portfolio contract for the specified time period.
 #' 
-#' @details This function evaluates a single-stage portfolio contract considering state-dependent constraints for the specified time period. It computes the cost and allocation for each asset value provided in the vector \code{A_} based on the given state at time \code{t} and the associated constraints.
+#' @details This function evaluates a single-stage portfolio contract considering state-dependent constraints for the specified time period. 
+#' It computes the cost and allocation for each asset value provided in the vector \code{A_} based on the given state at time \code{t} and 
+#' the associated constraints.
 #' 
 #' @export
 eval_portfolio_t <- function(env, A_, t, S.t, Q.t, ...) {
