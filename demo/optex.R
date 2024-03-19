@@ -5,29 +5,30 @@ env <- new.env()
 # input_configuration(env)
 # simulate_auction(env)
 # initialize(env, rate = 0.4)
-generate_cssap(env, rate = 10.0, tau = 4L, nCS = 1L, nCO = 1L, nI = 1L, nJ = 1L)
+generate_cssap(env, rate = 4.0, tau = 4L, nCS = 1L, nCO = 1L, nI = 1L, nJ = 1L)
 model <- create_model(env)
 
 get_from_routes(env)
 get_to_routes(env)
 
-max.S <- env$R
+max.S <- 16L
+env$R <- max.S
 inc.S <- 1L
 
 get_state_indices(env, max.S, inc.S)
 
 ## Exogenous state vector
 Q <- list(
-  "vals" = seq(0L, env$R %/% env$tau, by = 10L),
-  "prob" = c(0.2, 0.4, 0.4)
+  "vals" = c(0L, 4L),
+  "prob" = c(0.4, 0.6)
 )
 D <- list(
-  "vals" = seq(0L, env$R %/% env$tau, by = 10L),
-  "prob" =c(0.2, 0.4, 0.4, 0.15)
+  "vals" = c(0L, 4L),
+  "prob" = c(0.5, 0.5)
 )
 W <- list(
-  "vals" = c(22.-8., 22., 22.+8.),
-  "prob" = dnorm(c(22.-8., 22., 22.+8.), 22.0, 8.0) / sum(dnorm(c(22.-8., 22., 22.+8.), 22.0, 8.0))
+  "vals" = c(5.0, 15.0, 30.0),
+  "prob" = dnorm(c(5.0, 15.0, 30.0), 25.0, 12.0) / sum(dnorm(c(5.0, 15.0, 30.0), 25.0, 12.0))
 )
 
 # Homogeneity: all lanes same cost of transportation in the spot
@@ -35,17 +36,22 @@ get_scenario_space(Q, D, W)
 
 ## Action space 
 # A_ <- seq(0L, env$nI*(max.S+max(Q$vals)), by = 5L)
-A_ <- seq(0L, max(env$Cb+env$Co), by = 5L)
+A_ <- seq(0L, 4L, by = 4L)
 nA <- length(A_)
 
-run_scenarios(env, 1L, 1L, nSdx, 1L, adj.w)
+adj.w  <- c(1L, max.S+1L)
+alpha  <- c(rep(2.5, env$nI), rep(c(2.5, 4.5), each = env$nJ))
+# result <- run_scenarios(env, 1L, 1L, nSdx, 2L, adj.w, alpha = alpha)
 
-adj.w <- c(1L, 1L)
+# active <- which(complete.cases(result))
+# result[active,]
+
+adj.w <- c(1L, max.S+1L)
 K     <- seq(nOmega)
 result <- matrix(NA, nrow = env$tau*nSdx*nA*nOmega, ncol = 5L)
 for (t in seq(env$tau)) {
   print(t)
-  result[(t-1L)*nSdx*nA*nOmega+seq(nSdx*nA*nOmega),] <- run_scenarios(env, t, 1L, nSdx, K, adj.w)
+  result[(t-1L)*nSdx*nA*nOmega+seq(nSdx*nA*nOmega),] <- run_scenarios(env, t, 1L, nSdx, K, adj.w, alpha = alpha)
 }
 
 ## Parallel run
@@ -65,7 +71,7 @@ library(doParallel)
 # adj.w <- c(1L, nSI, nSI^2L, (nSI^2L)*nSJ)
 # K <- which((rowSums(Phi.t[,1L:2L]) > 4L) & (rowSums(Phi.t[,3L:4L]) > 4L))
 
-adj.w <- c(1L, 1L)
+adj.w <- c(1L, max.S+1L)
 K     <- seq(nOmega)
 lenK  <- length(K)
 
@@ -80,7 +86,7 @@ for (t in seq(env$tau)) {
   foreach (idx = seq(n_chunks), .packages = c('gurobi','TLPR'), .combine = 'rbind') %dopar% {
     start <- chunks[idx]
     end   <- chunks[idx+1L]-1L
-    run_scenarios(env, t, start, end, K, adj.w)
+    run_scenarios(env, t, start, end, K, adj.w, alpha = alpha)
   } -> result[(t-1L)*nSdx*nA*lenK+seq(nSdx*nA*lenK),]
 }
 
@@ -117,6 +123,12 @@ for (t in seq(env$tau,1L)) {
   }
 }
 
-sum(apply(t(matrix(Q[1L,], nrow = nA)), 1L, function(x) which.max(x)) != 1L)
+cbind2(cbind2(SI_[Sdx[,env$I_]], SJ_[Sdx[,env$nI+env$J_]]), V[3L,]) |>
+  as.data.frame() |>
+  reshape2::dcast(V2 ~ V1, value.var = "V3") |>
+  dplyr::select(-1L) |>
+  as.matrix() |>
+  `rownames<-`(seq(-env$R, env$R)) |>
+  heatmap(Rowv=NA, Colv=NA, labRow = seq(-env$R,env$R), labCol = seq(0L,env$R), col = cm.colors(256), scale="none")
 
-      
+apply(t(matrix(Q[1L,], nrow = nA)), 1L, function(x) which.max(x))
