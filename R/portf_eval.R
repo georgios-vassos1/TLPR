@@ -156,5 +156,3 @@ eval_portfolio_t <- function(env, A_, t, S.t, Q.t, ...) {
     "assignment" = allocation
   )
 }
-
-
