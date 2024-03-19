@@ -26,5 +26,7 @@ A list containing the states, cost, and allocation of the portfolio contract.
 This function evaluates a portfolio contract considering state-dependent constraints.
 }
 \details{
-This function evaluates a portfolio contract considering state-dependent constraints. It computes the cost and allocation for each asset value provided in the vector \code{A_} and based on the given state constraints. It also updates the state vector according to the transactions made during each period.
+This function evaluates a portfolio contract considering state-dependent constraints.
+It computes the cost and allocation for each asset value provided in the vector \code{A_} and based on the given state constraints.
+It also updates the state vector according to the transactions made during each period.
 }

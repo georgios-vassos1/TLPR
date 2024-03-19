@@ -26,5 +26,7 @@ A list containing the cost and allocation of the portfolio contract for the spec
 This function evaluates a single-stage portfolio contract considering state-dependent constraints.
 }
 \details{
-This function evaluates a single-stage portfolio contract considering state-dependent constraints for the specified time period. It computes the cost and allocation for each asset value provided in the vector \code{A_} based on the given state at time \code{t} and the associated constraints.
+This function evaluates a single-stage portfolio contract considering state-dependent constraints for the specified time period.
+It computes the cost and allocation for each asset value provided in the vector \code{A_} based on the given state at time \code{t} and
+the associated constraints.
 }

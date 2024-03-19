@@ -4,7 +4,7 @@
 \alias{run_scenarios}
 \title{Run scenarios}
 \usage{
-run_scenarios(env, t, start, end, scenaria, weights)
+run_scenarios(env, t, start, end, scenaria, weights, ...)
 }
 \arguments{
 \item{env}{Environment object containing relevant data}
