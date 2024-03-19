@@ -79,12 +79,15 @@ stateIdx <- function(env, Si, Sj, max.S, weights, ...) {
 #' @param weights Numeric vector of weights
 #' @return A matrix representing transit
 #' @export
-run_scenarios <- function(env, t, start, end, scenaria, weights) {
+run_scenarios <- function(env, t, start, end, scenaria, weights, ...) {
+  args  <- list(...)
+  alpha <- args[["alpha"]]
+
   nScen   <- length(scenaria)
   transit <- matrix(NA, nrow = (end-start+1L)*nA*nScen, ncol = 5L)
   ldx <- 1L
   for (i in seq(start, end)) {
-    if(!(i%%10L)) print(i)
+    if(!(i%%100L)) print(i)
     for (j in seq(nA)) {
       for (k in seq(nScen)) {
         scndx <- scenaria[k]
@@ -100,12 +103,15 @@ run_scenarios <- function(env, t, start, end, scenaria, weights) {
         xI <- unlist(lapply(env$to_j,   function(l) sum(optx$x[l])))
         xJ <- unlist(lapply(env$from_i, function(l) sum(optx$x[l])))
 
-        transit[(ldx-1L)*nA*nScen+(j-1L)*nScen+k,] <- c(stateIdx(
-          env,
-          pmin(pmax(SI_[Sdx[i,env$I_]] + q - xI, 0L), env$R),
-          pmin(pmax(SJ_[Sdx[i,env$nI+env$J_]] - d + xJ, -env$R), env$R),
-          max.S, weights),
-          h.t(env, SI_[Sdx[i,env$I_]], SJ_[Sdx[i,env$nI+env$J_]]) + optx$objval, i, j, scndx)
+        next_i <- stateIdx(
+          env, 
+          pmax(pmin(SI_[Sdx[i,env$I_]] + q, env$R) - xI, 0L), 
+          pmin(pmax(SJ_[Sdx[i,env$nI+env$J_]] - d, -env$R) + xJ, env$R), 
+          max.S, weights)
+        transit[(ldx-1L)*nA*nScen+(j-1L)*nScen+k,] <- c(
+          next_i,
+          h.t(env, SI_[Sdx[next_i,env$I_]], SJ_[Sdx[next_i,env$nI+env$J_]], alpha = alpha) + optx$objval, 
+          i, j, scndx)
       }
     }
     ldx <- ldx + 1L
