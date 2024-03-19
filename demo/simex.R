@@ -109,7 +109,8 @@ while (i <= N) {
 }
 
 stats_ <- do.call(cbind, lapply(seq(npi), function(x) compute_stats(costs[,seq(x, npi*N, by = npi)], N = 1L)))
-matplot(stats_, type = 'l', lwd = rep(c(2L,1L,1L), 2L), lty = 1L, pch = 19L, ylab = "Cumulative Cost", col = rep(c(1L,2L,3L), each = 3L))
+matplot(stats_, type = 'l', 
+        lwd = rep(c(2L,1L,1L), 2L), lty = 1L, pch = 19L, ylab = "Cumulative Cost", col = rep(c(1L,2L,3L), each = 3L))
 
 ## Single run plots
 matplot(apply(result$cost, 2L, cumsum), type = 'b', lwd = 2L, lty = 1L, pch = 19L, ylab = "Cumulative Cost")
