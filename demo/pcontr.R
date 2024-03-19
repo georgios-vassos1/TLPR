@@ -1,41 +1,69 @@
 library(TLPR)
 
-## 
-evaluate_portfolio <- function(env, A_, plot = FALSE) {
+## Demo
+# Initiate instance
+env <- new.env()
+generate_cssap(env, rate = 10.0, tau = 4L, nCS = 10L, nCO = 1L, nB = 3L, nI = 2L, nJ = 2L)
 
-  cost <- rep(NaN, env$tau * nA)
-  allocation <- rep(NaN, env$tau * nA * env$nvars)
-  nA <- length(A_)
+get_from_routes(env)
+get_to_routes(env)
 
-  for (t in seq(env$tau)) {
-    obj_ <- c(env$CTb, env$CTo[t,])
-    rhs_ <- c(env$Cb[t,], env$Co[t,], NA)
-    for (j in seq(nA)) {
-      rhs_[env$nCS+env$nCO+1L] <- A_[j]
-      optx <- optimal_assignment(model, obj_, rhs_)
-      if (optx$status == "OPTIMAL") {
-        cost[(t-1L)*nA+j] <- optx$objval
-        allocation[((t-1L)*nA+(j-1L))*env$nvars+seq(env$nvars)] <- optx$x
-      } else {
-        print(optx$status)
-      }
-    }
-  }
+# Generate optimization model
+Idx   <- c(1L,2L,3L,4L)
+model <- create_model(env, Idx)
+# Action space 
+A_ <- seq(0L, max(sweep(env$Cb, 1L, env$Co, '+')), by = 5L)
+nA <- length(A_)
 
-  if (plot) {
-    matplot(A_, matrix(cost, nrow = nA), type = 'l')
-  }
+S0 <- t(rpois(env$nI*env$nJ, 10L))
+Q  <- rpois(env$tau*env$nI, 10L)
+D  <- rpois(env$tau*env$nJ, 10L)
 
-  list(
-    "cost" = cost,
-    "assignment" = allocation
-  )
+cpx <- eval_portfolio(env, A_, S0, Q, D, plot = TRUE)
+
+# matplot(A_, t(cpx$cost[[2L]]), type = 'l')
+
+# idx <- rep(seq(nA), each = nA)
+# Y <- apply(cpx$cost[[3L]], 2L, function(x) tapply(x, idx, mean, na.rm = T))
+# matplot(A_, t(Y), type = 'l')
+# matplot(A_, t(cpx$cost[[3L]]), type = 'l')
+
+# idx <- rep(rep(seq(nA), each = nA), nA)
+# Y <- apply(cpx$cost[[4L]], 2L, function(x) tapply(x, idx, mean, na.rm = T))
+# matplot(A_, t(Y), type = 'l')
+# matplot(A_, t(cpx$cost[[4L]]), type = 'l')
+
+t <- 2L
+j <- 5L
+
+Sx <- c(0L,0L,0L,0L)
+
+xspan <- seq(0L, 30L, by = 5L)
+yspan <- seq(0L, 30L, by = 5L)
+Qx <- as.matrix(unname(expand.grid(xspan, yspan)))
+cost <- rep(NaN, nrow(Qx))
+for (k in seq(nrow(Qx))) {
+  cost[k] <- eval_portfolio_t(env, A_[j], t, Sx, Qx[k,])$cost
 }
+
+cbind2(Qx, cost) |>
+  as.data.frame() |>
+  reshape2::dcast(V2 ~ V1, value.var = "V3") |>
+  dplyr::select(-1L) |>
+  as.matrix() |>
+  apply(1L, rev) |>
+  heatmap(Rowv=NA, Colv=NA, labRow = rev(xspan), labCol = yspan, col = cm.colors(256), scale="none")
+# z <- matrix(cost, nrow = length(xspan), ncol = length(yspan))
+# plot3D::persp3D(x = xspan, y = yspan, z = z, col = "lightblue", 
+#                 theta = 30, phi = 30, xlab = "X", ylab = "Y", zlab = "Z", main = "3D Surface Plot")
 
 library(data.table)
 library(igraph)
 
-portfolio_evaluation_data <- function(env, A_, assignments) {
+## Draw the feasible region and show we must only calculate cost on boundary areas
+# data.table::CJ(seq(0L,30L),seq(0L,30L),seq(0L,30L),seq(0L,30L))
+
+stateless_portf_eval_data <- function(env, A_, assignments) {
   ## Auxiliary data
   nA <- length(A_)
   lanes    <- c(env$L_, seq(env$nL))
@@ -62,19 +90,7 @@ portfolio_evaluation_data <- function(env, A_, assignments) {
   cat("A data.table called `dt' has been stored in the global context.")
 }
 
-## Demo
-# Initiate instance
-env <- new.env()
-generate_cssap(env, rate = 10.0, tau = 12L, nCS = 10L, nCO = 1L, nB = 3L, nI = 2L, nJ = 2L)
-# Generate optimization model
-Idx   <- c(1L,4L)
-model <- create_model(env, Idx)
-# Action space 
-A_ <- seq(0L, max(sweep(env$Cb, 1L, env$Co, '+')), by = 5L)
-nA <- length(A_)
-cpx <- evaluate_portfolio(env, A_, plot = TRUE)
-
-portfolio_evaluation_data(env, A_, cpx$assignment)
+stateless_portf_eval_data(env, A_, cpx$assignment)
 
 ## Plot
 # action-lane indexes for a single block
@@ -110,4 +126,4 @@ par(mfrow = c(1L,1L))
 
 # Manual inspection
 j <- nA
-dt[(t==6L) & (action==A_[j])]
+dt[(t==2L) & (action==A_[j])]
