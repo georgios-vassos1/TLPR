@@ -47,10 +47,10 @@ for (i in seq(env$nI)) {
 }
 
 for (j in seq(env$nJ)) {
-  A3[env$nI+j, env$nI+(j-1L)*2L+seq(2L)] <- c(-1L, 1L)
+  A3[env$nI+j, env$nI+(j-1L)*2L+seq(2L)] <- c(1L, -1L)
   jdx <- env$to_j[[j]]
   A3[env$nI+j, env$nI+2L*env$nJ+jdx] <- 1L
-  A3[env$nI+j, env$nI+2L*env$nJ+env$nvars+env$nI+(j-1L)*2L+seq(2L)] <- c(1L, -1L)
+  A3[env$nI+j, env$nI+2L*env$nJ+env$nvars+env$nI+(j-1L)*2L+seq(2L)] <- c(-1L, 1L)
 }
 rhs3 <- c(Q[seq(env$nI)],D[seq(env$nJ)])
 sns3 <- rep("=", env$nI+env$nJ)
@@ -93,6 +93,23 @@ obj_ <- c(CW, CD, CB, env$CTb, env$CTo[1L,], CW, CD, CB)
 A <- rbind(A12, A3, A4, A5)
 rhs <- c(rhs1, rhs2, rhs3, rhs4, rhs5)
 sns <- c(sns1, sns2, sns3, sns4, sns5)
+
+model <- list()
+
+model$A          <- A
+model$obj        <- obj_
+model$modelsense <- 'min'
+model$rhs        <- rhs
+model$sense      <- sns
+model$lb         <- rep(0L,  ncol(model$A))
+model$vtype      <- rep('C', ncol(model$A))
+
+model
+
+opt <- gurobi::gurobi(model, params = list(OutputFlag = 0L))
+opt$x
+opt$pi
+
 
 offset <- env$nI + 2L*env$nJ
 A.tau <- Matrix::spMatrix(nrow = env$tau*nrow(A), ncol = env$tau*(ncol(A)-offset)+offset)
