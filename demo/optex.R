@@ -11,7 +11,7 @@ model <- create_model(env)
 get_from_routes(env)
 get_to_routes(env)
 
-max.S <- 16L
+max.S <- 30L
 env$R <- max.S
 inc.S <- 1L
 
@@ -19,12 +19,12 @@ get_state_indices(env, max.S, inc.S)
 
 ## Exogenous state vector
 Q <- list(
-  "vals" = c(0L, 4L),
-  "prob" = c(0.4, 0.6)
+  "vals" = c(0L, 4L, 8L),
+  "prob" = c(0.2, 0.5, 0.3)
 )
 D <- list(
-  "vals" = c(0L, 4L),
-  "prob" = c(0.5, 0.5)
+  "vals" = c(0L, 4L, 8L),
+  "prob" = c(0.25, 0.25, 0.5)
 )
 W <- list(
   "vals" = c(5.0, 15.0, 30.0),
@@ -46,6 +46,7 @@ alpha  <- c(rep(2.5, env$nI), rep(c(2.5, 4.5), each = env$nJ))
 # active <- which(complete.cases(result))
 # result[active,]
 
+# Serial execution
 adj.w <- c(1L, max.S+1L)
 K     <- seq(nOmega)
 result <- matrix(NA, nrow = env$tau*nSdx*nA*nOmega, ncol = 5L)
@@ -68,17 +69,23 @@ chunks   <- chunkup(nSdx, n_chunks)
 library(foreach)
 library(doParallel)
 
-# adj.w <- c(1L, nSI, nSI^2L, (nSI^2L)*nSJ)
-# K <- which((rowSums(Phi.t[,1L:2L]) > 4L) & (rowSums(Phi.t[,3L:4L]) > 4L))
-
 adj.w <- c(1L, max.S+1L)
 K     <- seq(nOmega)
 lenK  <- length(K)
+
+# adj.w <- c(1L, nSI, nSI^2L, (nSI^2L)*nSJ)
+# K <- which((rowSums(Phi.t[,1L:2L]) > 4L) & (rowSums(Phi.t[,3L:4L]) > 4L))
+# lenK  <- length(K)
 
 cores <- detectCores()
 cl    <- makeCluster(cores-4L) # not to overload your computer
 clusterExport(cl, c("model", "max.S", "SI_", "SJ_", "Sdx", "A_", "nA", "Phi.t"))
 registerDoParallel(cl)
+
+result <- matrix(NA, nrow = env$tau*nSdx*nA*lenK, ncol = 5L)
+foreach (t = seq(env$tau), .packages = c('gurobi','TLPR'), .combine = 'rbind') %dopar% {
+  run_scenarios(env, t, 1L, nSdx, K, adj.w, alpha = alpha)
+} -> result
 
 result <- matrix(NA, nrow = env$tau*nSdx*nA*lenK, ncol = 5L)
 for (t in seq(env$tau)) {
@@ -102,7 +109,7 @@ for (t in seq(env$tau)) {
 }
 transit <- result
 
-tilde_phidx <- 12L # Fix scenario
+tilde_phidx <- c(17L, 17L, 22L, 4L) # Fix scenario
 
 V <- matrix(NA, nrow = env$tau+1L, ncol = nSdx)
 V[env$tau+1L,] <- 0.0
@@ -114,7 +121,7 @@ for (t in seq(env$tau,1L)) {
     for (j in seq(nA)) {
       position <- (((t-1L)*nSdx+(i-1L))*nA+(j-1L))*lenK
       next_s <- transit[position + seq(lenK),1L]
-      cost.t <- transit[position + tilde_phidx,2L] # Fix scenario
+      cost.t <- transit[position + tilde_phidx[t],2L] # Fix scenario
       scnidx <- transit[position + seq(lenK),5L]
       prob   <- PPhi.t[scnidx] / sum(PPhi.t[K])
       Q[t,(i-1L)*nA+j] <- - cost.t + c(V[t+1L,next_s] %*% prob)
@@ -123,7 +130,7 @@ for (t in seq(env$tau,1L)) {
   }
 }
 
-cbind2(cbind2(SI_[Sdx[,env$I_]], SJ_[Sdx[,env$nI+env$J_]]), V[3L,]) |>
+cbind2(cbind2(SI_[Sdx[,env$I_]], SJ_[Sdx[,env$nI+env$J_]]), V[1L,]) |>
   as.data.frame() |>
   reshape2::dcast(V2 ~ V1, value.var = "V3") |>
   dplyr::select(-1L) |>

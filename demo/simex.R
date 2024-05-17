@@ -17,9 +17,14 @@ rhs_dx <- unlist(list(
 
 model <- create_model(env, Idx)
 
+nomoves <- function(k, ...) {
+  list(x = rep(0L, k), objval = 0.0)
+}
+
 policy <- list(
   "myopic" = optimal_assignment,
-  "random" = random_assignment
+  "random" = random_assignment,
+  "nomoves" = nomoves
 )
 npi <- length(policy)
 
@@ -58,13 +63,15 @@ rbind2(
 ) -> carriers
 # carriers[,1L] <- rep(seq_along(rle(carriers[,1L])$values), rle(carriers[,1L])$lengths)
 # Create the data table.
+pdx <- 1L
+
 dt <- as.data.table(cbind(
   t       = rep(seq(env$tau), each = env$nvars),
   carrier = carriers[,1L],
   lane    = lanes,
   origin  = env$L[lanes,2L],
   destination = env$L[lanes,1L]+env$nI,
-  assignment  = result$allocation[,1L]))
+  assignment  = result$allocation[,pdx]))
 # Add capacity and cost information.
 dt[, capacity := cbind2(env$Cb,env$Co)[t,carrier], by = .(t, carrier)]
 dt[, cost := c(env$CTb,env$CTo[t,]), by = .(t)]
@@ -74,7 +81,7 @@ dtx <- dt[, .(assignment = sum(assignment, na.rm = T)), by = .(t, origin, destin
 par(mfrow = c(3L,4L))
 for (t_ in seq(env$tau)) {
   # Create an igraph object
-  g <- graph.data.frame(dtx[t==t_,-1L], directed = TRUE, vertices = seq(env$nI+env$nJ))
+  g <- graph_from_data_frame(dtx[t==t_,-1L], directed = TRUE, vertices = seq(env$nI+env$nJ))
   # Set vertex and edge attributes
   V(g)$color <- "lightblue"
   V(g)$size <- 50L  # Set the size of the vertices
@@ -89,8 +96,8 @@ for (t_ in seq(env$tau)) {
        labels = c(
          result$Q[(t_-1L)*env$nI+seq(env$nI)],
          result$D[(t_-1L)*env$nI+seq(env$nI)],
-         result$S.I[(t_-1L)*env$nI+seq(env$nI),1L],
-         result$S.J[(t_-1L)*env$nJ+seq(env$nJ),1L]),
+         result$S.I[(t_-1L)*env$nI+seq(env$nI),pdx],
+         result$S.J[(t_-1L)*env$nJ+seq(env$nJ),pdx]),
        adj = c(.5, .5))
 }
 par(mfrow = c(1L,1L))
