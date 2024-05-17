@@ -8,7 +8,7 @@ get_from_routes <- function(env, ...) {
   env$from_i <- vector(mode = 'list', length = env$nI)
   for (i in seq(env$nI)) {
     # All possible routes from all origins to destination j
-    idx <- (seq(env$nI)-1L)*env$nJ
+    idx <- (seq(env$nJ) - 1L) * env$nI
     # All indices in the bids that go to destination j
     msk <- which(apply(outer(env$L_, idx + i, '=='), 1L, any))
     # Adding spot indices that go to destination j
