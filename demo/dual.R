@@ -5,29 +5,51 @@ env <- new.env()
 # input_configuration(env)
 # simulate_auction(env)
 # initialize(env, rate = 0.4)
-generate_cssap(env, rate = 4.0, tau = 4L, nCS = 1L, nCO = 1L, nI = 2L, nJ = 2L)
+generate_cssap(env, rate = 4.0, tau = 4L, nCS = 1L, nCO = 1L, nI = 2L, nJ = 1L)
 model <- create_model(env)
 model$vtype <- rep('C', env$nvars)
 
-env$from_i <- vector(mode = "list", length = env$nI)
-for (i in seq(env$nI)) {
-  idx <- (seq(env$nJ) - 1L) * env$nI
-  msk <- which(apply(outer(env$L_, idx + i, "=="), 1L, any))
-  idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L) * env$nL, "+")) + i
-  env$from_i[[i]] <- c(msk, idx)
-}
-
-env$to_j <- vector(mode = "list", length = env$nJ)
-for (j in seq(env$nJ)) {
-  idx <- (j - 1L) * env$nI + seq(env$nI)
-  msk <- which(apply(outer(env$L_, idx, "=="), 1L, any))
-  idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L) * env$nL, 
-                           "+"))
-  env$to_j[[j]] <- c(msk, idx)
-}
-
 get_from_routes(env)
 get_to_routes(env)
+
+
+sources <- vector(mode = "list", length = env$nCS + env$nCO)
+for (k in seq_along(env$nCS)) {
+  sources[[k]]$id     <- k
+  sources[[k]]$routes <- unlist(lapply(env$winner[[k]], function(x) unlist(env$B[x])))
+  sources[[k]]$from   <- env$L[sources[[k]]$routes,1L]
+  sources[[k]]$to     <- env$L[sources[[k]]$routes,2L]
+  sources[[k]]$cost   <- env$CTb
+  sources[[k]]$capacity <- env$Cb[1L,k]
+  sources[[k]]$stock  <- c(10L,8L)
+  sources[[k]]$residue <- c(10L)
+}
+for (k in env$nCS+seq_along(env$nCO)) {
+  sources[[k]]$id     <- k
+  sources[[k]]$routes <- seq(env$nL)
+  sources[[k]]$from   <- env$L[sources[[k]]$routes,1L]
+  sources[[k]]$to     <- env$L[sources[[k]]$routes,2L]
+  sources[[k]]$cost   <- env$CTo[1L,]
+  sources[[k]]$capacity <- env$Co[1,k-env$nCS]
+  sources[[k]]$stock  <- c(10L,8L)
+  sources[[k]]$residue <- c(10L)
+}
+
+X <- do.call(rbind, lapply(sources, function(x) cbind(x$routes, x$cost, x$capacity, x$stock[x$from], x$residue[x$to], x$id, x$from, x$to)))
+X <- X[order(X[,2L]),]
+X <- cbind(X, 1L)
+n <- nrow(X)
+
+demand <- 5L
+for (k in seq(n)) {
+  if (X[k,9L] == 0L) next
+  mask <- which(X[,9L] == 1L)
+  idx  <- which.min(c(X[k,3L], X[k,4L], X[k,5L]))
+  demand <- max(demand - X[k,idx + 2L], 0L)
+  X[which(X[k,idx + 5L] == X[,idx + 5L]), 9L] <- 0L
+  if (demand == 0L) break
+}
+
 
 max.S <- 10L
 env$R <- max.S
