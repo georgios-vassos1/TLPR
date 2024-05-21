@@ -69,8 +69,8 @@ dt <- as.data.table(cbind(
   t       = rep(seq(env$tau), each = env$nvars),
   carrier = carriers[,1L],
   lane    = lanes,
-  origin  = env$L[lanes,2L],
-  destination = env$L[lanes,1L]+env$nI,
+  origin  = env$L[lanes,1L],
+  destination = env$L[lanes,2L]+env$nI,
   assignment  = result$allocation[,pdx]))
 # Add capacity and cost information.
 dt[, capacity := cbind2(env$Cb,env$Co)[t,carrier], by = .(t, carrier)]
