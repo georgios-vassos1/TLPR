@@ -60,9 +60,17 @@ storage_limit <- function(env, ...) {
   # Storage constrains
   A <- spMatrix(ncol = env$nvars, nrow = env$nJ)
   for (j in seq(env$nJ)) {
-    idx <- (seq(env$nJ) - 1L)*env$nI
-    msk <- which(apply(outer(env$L_, idx + j, '=='), 1L, any))
-    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + j
+    idx <- (j-1L)*env$nI + seq(env$nI)
+    # All indices in the bids that start from origin i
+    msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
+    # Adding spot indices that start from origin i
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO)-1L)*env$nL, '+'))
+    ##
+    ## Reverse indexing
+    # idx <- (seq(env$nJ) - 1L)*env$nI
+    # msk <- which(apply(outer(env$L_, idx + j, '=='), 1L, any))
+    # idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + j
+    ##
     A[j, c(msk, idx)] <- 1L
   }
   rhs <- NULL
@@ -82,9 +90,18 @@ positivity_ <- function(env, ...) {
   # Positivity constrains
   A <- spMatrix(ncol = env$nvars, nrow = env$nI)
   for (i in seq(env$nI)) {
-    idx <- (i - 1L)*env$nJ + seq(env$nJ)
-    msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
-    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+'))
+    # All possible routes from all origins to destination j
+    idx <- (seq(env$nJ) - 1L) * env$nI
+    # All indices in the bids that go to destination j
+    msk <- which(apply(outer(env$L_, idx + i, '=='), 1L, any))
+    # Adding spot indices that go to destination j
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + i
+    ##
+    ## Reverse indexing
+    # idx <- (i - 1L)*env$nJ + seq(env$nJ)
+    # msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
+    # idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+'))
+    ##
     A[i, c(msk, idx)] <- 1L
   }
   rhs <- NULL
