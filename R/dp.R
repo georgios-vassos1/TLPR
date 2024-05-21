@@ -100,8 +100,8 @@ run_scenarios <- function(env, t, start, end, scenaria, weights, ...) {
           rhs_ = c(env$Cb[t,], env$Co[t,], env$R - SJ_[Sdx[i,env$nI+env$J_]], SI_[Sdx[i,env$I_]] + q, A_[j]))
         if (optx$status == "INFEASIBLE") next
 
-        xI <- unlist(lapply(env$to_j,   function(l) sum(optx$x[l])))
-        xJ <- unlist(lapply(env$from_i, function(l) sum(optx$x[l])))
+        xI <- unlist(lapply(env$from_i, function(l) sum(optx$x[l])))
+        xJ <- unlist(lapply(env$to_j,   function(l) sum(optx$x[l])))
 
         next_i <- stateIdx(
           env, 
