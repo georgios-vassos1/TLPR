@@ -96,8 +96,8 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
       cost[t,pdx] <- optx$objval + h.t(env, S.I[idx,pdx], S.J[jdx,pdx], env$alpha)
       allocation[(t-1L)*env$nvars+seq(env$nvars),pdx] <- optx$x
 
-      X.I[idx,pdx] <- unlist(lapply(env$to_j, function(k) sum(a.t[k])))
-      X.J[jdx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
+      X.I[idx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
+      X.J[jdx,pdx] <- unlist(lapply(env$to_j, function(k) sum(a.t[k])))
 
       # This term is an heuristic to compensate for the error caused by eliminating the stock constraint.
       #   X.I might be larger than the stock, this can be corrected in the transition
