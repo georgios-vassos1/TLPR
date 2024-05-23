@@ -2,6 +2,7 @@
 
 export(capacitated_random_assignment)
 export(compute_stats)
+export(createAndPassList)
 export(create_model)
 export(eval_portfolio)
 export(eval_portfolio_t)
@@ -23,3 +24,5 @@ export(simulate_auction)
 export(simulate_system)
 import(Matrix)
 import(gurobi)
+importFrom(Rcpp,sourceCpp)
+useDynLib(TLPR)
