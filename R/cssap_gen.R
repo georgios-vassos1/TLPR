@@ -6,7 +6,7 @@
 #' @param J A vector representing the destinations.
 #' @return A matrix of lanes.
 get_lanes <- function(I, J) {
-  as.matrix(unname(expand.grid(I, J)))
+  as.matrix(unname(data.table::CJ(I, J)))
 }
 
 #' Generate Bid
