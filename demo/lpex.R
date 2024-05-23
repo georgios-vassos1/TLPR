@@ -66,7 +66,7 @@ A4 <- cbind(
   A4, Matrix::spMatrix(ncol = 2L*env$nJ + env$nvars + env$nI + 2L*env$nJ, nrow = env$nI)
 )
 
-rhs4 <- rep(env$R, env$nI)
+rhs4 <- env$R-Q[seq(env$nI)]
 sns4 <- rep("<", env$nI)
 
 A5 <- Matrix::spMatrix(ncol = 2L*env$nJ + env$nvars, nrow = env$nJ)
@@ -107,8 +107,13 @@ model$vtype      <- rep('C', ncol(model$A))
 model
 
 opt <- gurobi::gurobi(model, params = list(OutputFlag = 0L))
+
+offset <- env$nI + 2L*env$nJ
+idx <- offset + seq(env$nvars)
+
 opt$x
-opt$pi
+cbind2(opt$x[idx], env$L[c(env$L_, seq(env$nL)),])
+cbind2(opt$x[env$nvars+offset+idx], env$L[c(env$L_, seq(env$nL)),])
 
 
 offset <- env$nI + 2L*env$nJ
@@ -145,10 +150,10 @@ model
 
 opt <- gurobi::gurobi(model, params = list(OutputFlag = 0L))
 
-S.I  <- matrix(0.0, nrow = (env$tau+1L)*env$nI, ncol = 1L)
-S.J  <- matrix(0.0, nrow = (env$tau+1L)*env$nJ, ncol = 1L)
-X.I  <- matrix(0.0, nrow = env$tau*env$nI, ncol = 1L)
-X.J  <- matrix(0.0, nrow = env$tau*env$nJ, ncol = 1L)
+S.I  <- matrix(NA, nrow = (env$tau+1L)*env$nI, ncol = 1L)
+S.J  <- matrix(NA, nrow = (env$tau+1L)*env$nJ, ncol = 1L)
+X.I  <- matrix(NA, nrow = env$tau*env$nI, ncol = 1L)
+X.J  <- matrix(NA, nrow = env$tau*env$nJ, ncol = 1L)
 allocation <- matrix(NA, env$tau * env$nvars, ncol = 1L)
 
 blk <- offset + env$nvars
@@ -157,7 +162,7 @@ for (t in seq(env$tau+1L)) {
   j <- (t-1L)*env$nJ+env$J_
   idx <- (t-1L)*blk + seq(blk)
   S.I[i,1L] <- opt$x[idx][env$I_]
-  S.J[j,1L] <- opt$x[idx][env$nI+env$J_] - opt$x[idx][env$nI+env$nJ+env$J_]
+  S.J[j,1L] <- c(Reduce('-', opt$x[idx][env$nI+env$J_]), Reduce('-', opt$x[idx][env$nI+env$nJ+env$J_]))
 
   if (t > env$tau) break
   allocation[(t-1L)*env$nvars+seq(env$nvars),1L] <- opt$x[idx][offset+seq(env$nvars)]
@@ -178,10 +183,9 @@ rbind2(
 # Create the data table.
 dt <- as.data.table(cbind(
   t       = rep(seq(env$tau), each = env$nvars),
-  carrier = carriers[,1L],
   lane    = lanes,
-  origin  = env$L[lanes,2L],
-  destination = env$L[lanes,1L]+env$nI,
+  origin  = env$L[lanes,1L],
+  destination = env$L[lanes,2L]+env$nI,
   assignment  = allocation[,1L]))
 
 dtx <- dt[, .(assignment = sum(assignment, na.rm = T)), by = .(t, origin, destination)]
