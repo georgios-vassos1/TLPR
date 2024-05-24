@@ -6,7 +6,7 @@
 #' @param J A vector representing the destinations.
 #' @return A matrix of lanes.
 get_lanes <- function(I, J) {
-  as.matrix(unname(data.table::CJ(I, J)))
+  unname(as.matrix(data.table::CJ(I, J)))[,c(2L,1L),drop = F] # reverse order of columns
 }
 
 #' Generate Bid
@@ -118,6 +118,8 @@ initialize <- function(env, ...) {
   env$nLc <- c(0L, unlist(lapply(env$CS, function(idx) length(unlist(env$B[env$winner[[idx]]])))))
   env$L_  <- unlist(lapply(env$CS, function(idx) env$B[env$winner[[idx]]]))
   env$nL_ <- length(env$L_)
+  # Winner carrier idx
+  env$carriers <- rep(seq_along(env$winner), env$nLc[-1L])
   # Transportation cost of strategic carriers
   env$CTb <- pmax(rnorm(env$nL_, 12.0, 4.0), min.TC)
   # Transportation cost of spot carriers
@@ -138,6 +140,44 @@ initialize <- function(env, ...) {
   env$nvars <- env$nL_ + ncol(env$CTo)
 }
 
+#' Get From Routes
+#' 
+#' Retrieves the routes originating from different sources.
+#' 
+#' @param env The environment variable.
+get_from_routes <- function(env, ...) {
+  env$from_i <- vector(mode = 'list', length = env$nI)
+  for (i in seq(env$nI)) {
+    # All possible routes from origin i to the destinations
+    idx <- (seq(env$nJ) - 1L) * env$nI
+    # All indices in the bids that start from origin i
+    msk <- which(apply(outer(env$L_, idx + i, '=='), 1L, any))
+    # Adding spot indices that start from origin i
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO) - 1L)*env$nL, '+')) + i
+    # Store result
+    env$from_i[[i]] <- c(msk, idx)
+  }
+}
+
+#' Get To Routes
+#' 
+#' Retrieves the routes leading to different destinations.
+#' 
+#' @param env The environment variable.
+get_to_routes <- function(env, ...) {
+  env$to_j <- vector(mode = 'list', length = env$nJ)
+  for (j in seq(env$nJ)) {
+    # All possible routes to destination j from all origins
+    idx <- (j-1L)*env$nI + seq(env$nI)
+    # All indices in the bids that do to destination j
+    msk <- which(apply(outer(env$L_, idx, '=='), 1L, any))
+    # Adding spot indices that go to destination j
+    idx <- env$nL_ + c(outer(idx, (seq(env$nCO)-1L)*env$nL, '+'))
+    # Store result
+    env$to_j[[j]] <- c(msk, idx)
+  }
+}
+
 #' Generate CSSAP
 #' 
 #' Generates a CSSAP (Carrier Scheduling and Shipment Assignment Problem).
@@ -150,6 +190,8 @@ generate_cssap <- function(env, tau=12L, ...) {
   do.call(input_configuration, list(env, 'tau'=tau, ...))
   simulate_auction(env)
   do.call(initialize, list(env, ...))
+  get_from_routes(env)
+  get_to_routes(env)
 }
 
 #' Print Info
