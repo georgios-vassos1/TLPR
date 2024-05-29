@@ -40,6 +40,7 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
     args[["obj_"]] <- c(env$CTb, env$CTo[t,])
     args[["n"]]    <- q[t]
     args[["x"]]    <- c(env$Cb[t,], env$Co[t,])
+    # args[["idx"]]  <- order(c(env$CTb, env$CTo[t,]))
 
     for (pdx in seq_along(policy)) {
       args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q[t])[RHSdx]
