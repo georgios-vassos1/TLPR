@@ -1,8 +1,3 @@
-devtools::build("~/drayage/TLPR")
-devtools::document("~/drayage/TLPR")
-devtools::install("~/drayage/TLPR", reload = F)
-
-
 library(TLPR)
 
 ## Dynamic program
@@ -10,7 +5,7 @@ env <- new.env()
 # input_configuration(env)
 # simulate_auction(env)
 # initialize(env, rate = 0.4)
-generate_cssap(env, rate = 4.0, tau = 4L, nB = 5L, nCS =10L, nCO = 1L, nI = 2L, nJ = 2L)
+generate_cssap(env, rate = 4.0, tau = 4L, nB = 5L, nCS =10L, nCO = 1L, nI = 1L, nJ = 1L)
 model <- create_model(env)
 
 # TLPR:::get_from_routes(env)
@@ -165,3 +160,15 @@ for (t in seq(env$tau)) {
   }
 }
 
+## Time benchmark
+
+t <- 1L
+i <- sample(nSdx, 1L)
+j <- sample(seq(nA), 1L)
+obj <- c(env$CTb, env$CTo[t,])
+rhs <- c(env$Cb[t,], env$Co[t,], env$R - SJ_[Sdx[i,env$nI+env$J_]], SI_[Sdx[i,env$I_]] + sample(c(0L, 4L, 8L), 1L, prob = c(0.2, 0.5, 0.3)), A_[j])
+microbenchmark::microbenchmark(
+  optimal_assignment(model, obj, rhs),
+  heuristic_assignment(model, obj, rhs, env$nvars, nrow(model$A)),
+  times = 100L
+)
