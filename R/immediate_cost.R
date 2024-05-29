@@ -181,7 +181,8 @@ random_assignment <- function(n, k, obj_, ...) {
   if (n == 0L) {
     return(list(
       "x" = numeric(k),
-      "objval" = 0.0
+      "objval" = 0.0,
+      "status" = "RANDOM"
     ))
   }
   # Generate n-1 random integers between 1 and n-1
@@ -191,9 +192,71 @@ random_assignment <- function(n, k, obj_, ...) {
   # Return structure
   list(
     "x" = x,
-    "objval" = c(obj_ %*% x)
+    "objval" = c(obj_ %*% x),
+    "status" = "RANDOM"
   )
 }
+
+#' Heuristic Assignment Function
+#'
+#' This function performs a heuristic assignment given a model and constraints.
+#'
+#' @param model A list containing the model matrix `A` and `sense` vector.
+#' @param obj_ A numeric vector representing the objective coefficients.
+#' @param rhs_ A numeric vector representing the right-hand side constraints.
+#' @param k An integer representing the number of variables.
+#' @param edx An integer index to specify a subset of constraints to be excluded.
+#' @param ... Additional arguments (not used).
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{x}{A numeric vector representing the assignment solution.}
+#'   \item{objval}{A numeric value representing the objective value of the solution.}
+#'   \item{status}{A character string representing the status of the solution.}
+#' }
+#'
+#' @examples
+#' model <- list(
+#'   A = matrix(c(1, 2, 3, 4, 5, 6), nrow = 2, byrow = TRUE),
+#'   sense = c("<=", "<=")
+#' )
+#' obj_ <- c(1, 2, 3)
+#' rhs_ <- c(7, 8)
+#' k <- 3
+#' edx <- 1
+#' heuristic_assignment(model, obj_, rhs_, k, edx)
+#'
+#' @export
+heuristic_assignment <- function(model, obj_, rhs_, k, edx, ...) {
+  if ((volume <- rhs_[edx])<= 0L) {
+    return(list(
+      "x" = numeric(k),
+      "objval" = 0.0,
+      "status" = "HEURISTIC"
+    ))
+  }
+  idx    <- order(obj_)
+
+  x   <- numeric(k)
+  pos <- 1L
+  repeat {
+    x[pos] <- x[pos] + 1L
+    expr   <- paste0(as.vector(model$A[-edx,idx] %*% x), model$sense[-edx], '=', rhs_[-edx])
+    if (!all(sapply(parse(text = expr), eval))) {
+      x[pos] <- x[pos] - 1L
+      pos    <- pos + 1L
+    }
+    if (volume == sum(x) || pos > k) break
+  }
+  x[idx] <- x
+
+  list(
+    "x" = x,
+    "objval" = c(obj_ %*% x),
+    "status" = "HEURISTIC"
+  )
+}
+
 
 #' Capacitated Random Assignment
 #' 
@@ -210,30 +273,33 @@ random_assignment <- function(n, k, obj_, ...) {
 #' cap_assignment$x
 #' cap_assignment$objval
 #' @export
-capacitated_random_assignment <- function(n, k, obj_, x, ...) {
-  if (n == 0L) {
+capacitated_random_assignment <- function(model, obj_, rhs_, k, edx, ...) {
+  if ((volume <- rhs_[edx])<= 0L) {
     return(list(
       "x" = numeric(k),
-      "objval" = 0.0
+      "objval" = 0.0,
+      "status" = "CAPACITATED RANDOM"
     ))
   }
+  idx    <- sample(seq_along(obj_))
 
-  allocation <- numeric(k)
-  residue <- min(n, sum(x))
-
-  while (residue > 0L) {
-    for (i in seq(k)) {
-      a_i <- sample(min(x[i], residue), 1L)
-      allocation[i] <- allocation[i] + a_i
-      x[i] <- max(x[i] - a_i, 0L)
-      residue <- residue - a_i
+  x   <- numeric(k)
+  pos <- 1L
+  repeat {
+    x[pos] <- x[pos] + 1L
+    expr   <- paste0(as.vector(model$A[-edx,idx] %*% x), model$sense[-edx], '=', rhs_[-edx])
+    if (!all(sapply(parse(text = expr), eval))) {
+      x[pos] <- x[pos] - 1L
+      pos    <- pos + 1L
     }
+    if (volume == sum(x) || pos > k) break
   }
+  x[idx] <- x
 
-  # Return structure
   list(
-    "x" = allocation,
-    "objval" = c(obj_ %*% allocation)
+    "x" = x,
+    "objval" = c(obj_ %*% x),
+    "status" = "CAPACITATED RANDOM"
   )
 }
 

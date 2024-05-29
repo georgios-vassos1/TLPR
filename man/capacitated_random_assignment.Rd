@@ -4,14 +4,14 @@
 \alias{capacitated_random_assignment}
 \title{Capacitated Random Assignment}
 \usage{
-capacitated_random_assignment(n, k, obj_, x, ...)
+capacitated_random_assignment(model, obj_, rhs_, k, edx, ...)
 }
 \arguments{
-\item{n}{Integer, number of items.}
+\item{obj_}{Numeric vector, objective coefficients.}
 
 \item{k}{Integer, number of bins.}
 
-\item{obj_}{Numeric vector, objective coefficients.}
+\item{n}{Integer, number of items.}
 
 \item{x}{Numeric vector, bin capacities.}
 }
