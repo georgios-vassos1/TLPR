@@ -1,9 +1,9 @@
 library(TLPR)
 
 env <- new.env()
-generate_cssap(env, rate = 10.0, tau = 12L, nCS = 10L, nCO = 1L, nB = 3L, nI = 2L, nJ = 2L)
+generate_cssap(env, rate = 10.0, tau = 12L, nB = 8L, nCS = 10L, nCO = 1L, nI = 8L, nJ = 6L)
 
-env$alpha <- c(rep(1.0, env$nI), rep(c(1.0, 2.0), each = env$nJ))
+env$alpha <- c(rep(0.0, env$nI), rep(c(0.0, 0.0), each = env$nJ))
 
 # Choose the effective constraints
 #   Constraints 2L and 3L depend on the state of the system.
@@ -24,9 +24,22 @@ nomoves <- function(k, ...) {
 policy <- list(
   "myopic" = optimal_assignment,
   "random" = random_assignment,
-  "nomoves" = nomoves
+  "capacitated_random" = capacitated_random_assignment,
+  "heuristic" = heuristic_assignment
+  # "nomoves" = nomoves
 )
 npi <- length(policy)
+
+t <- 1L
+i <- sample(nSdx, 1L)
+j <- sample(seq(nA), 1L)
+obj <- c(env$CTb, env$CTo[t,])
+rhs <- c(env$Cb[t,], env$Co[t,], env$R - SJ_[Sdx[i,env$nI+env$J_]], SI_[Sdx[i,env$I_]] + sample(c(0L, 4L, 8L), 1L, prob = c(0.2, 0.5, 0.3)), A_[j])
+microbenchmark::microbenchmark(
+  optimal_assignment(model, obj, rhs),
+  heuristic_assignment(model, obj, rhs, env$nvars, nrow(model$A)),
+  times = 100L
+)
 
 args <- list(
   model = model,
@@ -34,7 +47,9 @@ args <- list(
   rhs_ = NULL,
   n = NULL,
   k = env$nvars,
-  x = NULL
+  edx = nrow(model$A)
+  # idx = NULL
+  # x = NULL
 )
 
 exog <- list(
@@ -42,8 +57,8 @@ exog <- list(
   "D" = list("func"=rpois, "params"=list('n'=env$tau*env$nJ, 'lambda'=10L))
 )
 
-get_from_routes(env)
-get_to_routes(env)
+# get_from_routes(env)
+# get_to_routes(env)
 
 ## Single simulation run
 result <- simulate_system(env, policy, args, exog, rhs_dx, correction = FALSE)
@@ -63,7 +78,7 @@ rbind2(
 ) -> carriers
 # carriers[,1L] <- rep(seq_along(rle(carriers[,1L])$values), rle(carriers[,1L])$lengths)
 # Create the data table.
-pdx <- 1L
+pdx <- 3L
 
 dt <- as.data.table(cbind(
   t       = rep(seq(env$tau), each = env$nvars),
@@ -117,7 +132,7 @@ while (i <= N) {
 
 stats_ <- do.call(cbind, lapply(seq(npi), function(x) compute_stats(costs[,seq(x, npi*N, by = npi)], N = 1L)))
 matplot(stats_, type = 'l', 
-        lwd = rep(c(2L,1L,1L), 2L), lty = 1L, pch = 19L, ylab = "Cumulative Cost", col = rep(c(1L,2L,3L), each = 3L))
+        lwd = rep(c(2L,1L,1L), npi), lty = 1L, pch = 19L, ylab = "Cumulative Cost", col = rep(seq(npi), each = 3L))
 
 ## Single run plots
 matplot(apply(result$cost, 2L, cumsum), type = 'b', lwd = 2L, lty = 1L, pch = 19L, ylab = "Cumulative Cost")
