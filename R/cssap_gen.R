@@ -118,14 +118,15 @@ initialize <- function(env, ...) {
   env$nLc <- c(0L, unlist(lapply(env$CS, function(idx) length(unlist(env$B[env$winner[[idx]]])))))
   env$L_  <- unlist(lapply(env$CS, function(idx) env$B[env$winner[[idx]]]))
   env$nL_ <- length(env$L_)
-  # Winner carrier idx
-  env$carriers <- rep(seq_along(env$winner), env$nLc[-1L])
   # Transportation cost of strategic carriers
   env$CTb <- pmax(rnorm(env$nL_, 12.0, 4.0), min.TC)
   # Transportation cost of spot carriers
   if (is.null(env$nCO <- args[["nCO"]])) {
     env$nCO <- 1L
   }
+  # Carrier indexing on lanes (to be bind with lanes)
+  env$carriers <- c(rep(seq_along(env$winner), env$nLc[-1L]), rep(env$nCS+seq(env$nCO), each = env$nL))
+  # Transportation cost of spot carriers
   if (is.null(env$CTo <- args[["CTo"]])) {
     env$CTo <- pmax(matrix(rnorm(env$tau * env$nCO * env$nL, 20.0, 10.0), nrow = env$tau), 5.0)
   }
