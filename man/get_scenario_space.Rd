@@ -4,7 +4,7 @@
 \alias{get_scenario_space}
 \title{Get scenario space}
 \usage{
-get_scenario_space(Q, D, W, hmg = TRUE)
+get_scenario_space(env, nI, nJ, Q, D, W, hmg = TRUE)
 }
 \arguments{
 \item{Q}{Q parameter}

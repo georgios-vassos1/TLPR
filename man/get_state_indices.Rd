@@ -4,10 +4,14 @@
 \alias{get_state_indices}
 \title{Endogenous state vector}
 \usage{
-get_state_indices(env, max_, incr_)
+get_state_indices(env, nI, nJ, max_, incr_)
 }
 \arguments{
-\item{env}{Environment parameters}
+\item{env}{Environment to host dynamic programming data}
+
+\item{nI}{Number of origin hubs}
+
+\item{nJ}{Number of destination hubs}
 
 \item{max_}{Maximum value}
 
