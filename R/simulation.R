@@ -48,8 +48,8 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
 
       optx <- do.call(policy[[pdx]], args)
       if (!is.null(optx[["status"]])) {
-        if (optx[["status"]] != "OPTIMAL") {
-          print(optx[["status"]])
+        if (optx[["status"]] == "INFEASIBLE") {
+          # print(optx[["status"]])
           return(list("status" = FALSE))
         }
       }

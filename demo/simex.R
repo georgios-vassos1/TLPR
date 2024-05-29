@@ -30,17 +30,6 @@ policy <- list(
 )
 npi <- length(policy)
 
-t <- 1L
-i <- sample(nSdx, 1L)
-j <- sample(seq(nA), 1L)
-obj <- c(env$CTb, env$CTo[t,])
-rhs <- c(env$Cb[t,], env$Co[t,], env$R - SJ_[Sdx[i,env$nI+env$J_]], SI_[Sdx[i,env$I_]] + sample(c(0L, 4L, 8L), 1L, prob = c(0.2, 0.5, 0.3)), A_[j])
-microbenchmark::microbenchmark(
-  optimal_assignment(model, obj, rhs),
-  heuristic_assignment(model, obj, rhs, env$nvars, nrow(model$A)),
-  times = 100L
-)
-
 args <- list(
   model = model,
   obj_ = NULL,
