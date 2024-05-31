@@ -274,14 +274,14 @@ heuristic_assignment <- function(model, obj_, rhs_, k, edx, ...) {
 #' cap_assignment$objval
 #' @export
 capacitated_random_assignment <- function(model, obj_, rhs_, k, edx, ...) {
-  if ((volume <- rhs_[edx])<= 0L) {
+  if ((volume <- rhs_[edx]) <= 0L) {
     return(list(
       "x" = numeric(k),
       "objval" = 0.0,
       "status" = "CAPACITATED RANDOM"
     ))
   }
-  idx    <- sample(seq_along(obj_))
+  idx <- sample(seq_along(obj_))
 
   x   <- numeric(k)
   pos <- 1L
