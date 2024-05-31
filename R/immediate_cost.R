@@ -228,14 +228,14 @@ random_assignment <- function(n, k, obj_, ...) {
 #'
 #' @export
 heuristic_assignment <- function(model, obj_, rhs_, k, edx, ...) {
-  if ((volume <- rhs_[edx])<= 0L) {
+  if ((volume <- rhs_[edx]) <= 0L) {
     return(list(
       "x" = numeric(k),
       "objval" = 0.0,
       "status" = "HEURISTIC"
     ))
   }
-  idx    <- order(obj_)
+  idx <- order(obj_)
 
   x   <- numeric(k)
   pos <- 1L

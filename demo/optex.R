@@ -5,7 +5,7 @@ env <- new.env()
 # input_configuration(env)
 # simulate_auction(env)
 # initialize(env, rate = 0.4)
-generate_cssap(env, rate = 4.0, tau = 4L, nB = 5L, nCS =10L, nCO = 1L, nI = 1L, nJ = 1L)
+generate_cssap(env, rate = 4.0, tau = 4L, nB = 5L, nCS =10L, nCO = 1L, nI = 2L, nJ = 2L)
 model <- create_model(env)
 
 # TLPR:::get_from_routes(env)
@@ -161,7 +161,6 @@ for (t in seq(env$tau)) {
 }
 
 ## Time benchmark
-
 t <- 1L
 i <- sample(nSdx, 1L)
 j <- sample(seq(nA), 1L)
