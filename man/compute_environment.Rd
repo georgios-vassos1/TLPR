@@ -9,13 +9,15 @@ compute_environment(env, env.dp, t, start, end, scenaria, weights, FUN, ...)
 \arguments{
 \item{env}{Environment object containing relevant data}
 
+\item{env.dp}{Environment object containing dynamic programming data}
+
 \item{t}{Value representing time}
 
 \item{start}{Start index}
 
 \item{end}{End index}
 
-\item{scenaria}{A vector of scenarios}
+\item{scenaria}{A vector of scenario indexes}
 
 \item{weights}{Numeric vector of weights}
 

@@ -1,0 +1,12 @@
+# Use C++17 standard
+CXX_STD = C++17
+
+# Compiler flags
+CXXFLAGS = -Wall -O2
+
+# Include directories
+PKG_CPPFLAGS = -I../inst/include
+
+# Libraries to link against
+# PKG_LIBS =
+

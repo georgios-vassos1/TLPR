@@ -10,8 +10,12 @@ License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
 Imports:
 	gurobi,
     Matrix,
-    Rcpp
-LinkingTo: Rcpp
+    Rcpp,
+    RcppEigen
+LinkingTo: 
+    Rcpp,
+    RcppEigen
 Encoding: UTF-8
+SystemRequirements: C++17
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1

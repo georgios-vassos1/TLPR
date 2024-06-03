@@ -4,7 +4,7 @@
 \alias{createAndPassList}
 \title{Process List of Vectors}
 \usage{
-createAndPassList(list_of_vectors)
+createAndPassList(list_of_vectors, is_map = FALSE, key_type = "int")
 }
 \description{
 This function creates a list of numeric vectors and passes it to a C++ function
