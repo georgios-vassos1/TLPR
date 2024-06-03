@@ -136,25 +136,38 @@ compute_environment <- function(env, env.dp, t, start, end, scenaria, weights, F
     if(!(i%%100L)) print(i)
     for (j in seq(env.dp$nA)) {
       for (k in seq(nScen)) {
+        # Exogenous variables
         scndx <- scenaria[k]
         q <- env.dp$Phi.t[scndx,env$I_]
         d <- env.dp$Phi.t[scndx,env$nI+env$J_]
         w <- rep(env.dp$Phi.t[scndx,env$nI+env$nJ+1L], env$nL)
 
-        rhs <- c(env$Cb[t,], env$Co[t,], env$R - env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]], env.dp$SI_[env.dp$Sdx[i,env$I_]] + q, env.dp$A_[j])
+        rhs <- c(
+          # Carrier capacity
+          env$Cb[t,], env$Co[t,], 
+          # Storage limits
+          env$R - env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]], env.dp$SI_[env.dp$Sdx[i,env$I_]] + q, 
+          # Transport volume
+          env.dp$A_[j])
+
         optx <- FUN(
           env.dp$model, obj_ = c(env$CTb, w), 
           rhs_ = rhs, k = env$nvars, edx = edx)
+
         if (optx$status == "INFEASIBLE") next
 
+        # Obtain origin-destination assignment volumes
         xI <- unlist(lapply(env$from_i, function(l) sum(optx$x[l])))
         xJ <- unlist(lapply(env$to_j,   function(l) sum(optx$x[l])))
+
+        # Compute the index of the next state of the system
         next_i <- stateIdx(
           env, 
           pmax(pmin(env.dp$SI_[env.dp$Sdx[i,env$I_]] + q, env$R) - xI, 0L), 
           pmin(pmax(env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]] - d, -env$R) + xJ, env$R), 
           max.S, weights)
 
+        # Store into the transition matrix
         transit[((i-start)*env.dp$nA+(j-1L))*nScen+k,] <- c(
           next_i,
           h.t(env, env.dp$SI_[env.dp$Sdx[next_i,env$I_]], env.dp$SJ_[env.dp$Sdx[next_i,env$nI+env$J_]], alpha = alpha) + optx$objval, 
