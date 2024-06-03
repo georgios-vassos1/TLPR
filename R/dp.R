@@ -117,10 +117,11 @@ stateIdx <- function(env, Si, Sj, max.S, weights, ...) {
 #' Run scenarios
 #' 
 #' @param env Environment object containing relevant data
+#' @param env.dp Environment object containing dynamic programming data
 #' @param t Value representing time
 #' @param start Start index
 #' @param end End index
-#' @param scenaria A vector of scenarios
+#' @param scenaria A vector of scenario indexes
 #' @param weights Numeric vector of weights
 #' @param FUN The assignment algorithm
 #' @return A matrix representing transit
