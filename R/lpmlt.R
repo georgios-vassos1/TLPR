@@ -8,11 +8,11 @@
 #' @export
 carrier_capacity_padded <- function(env) {
   # Compute standard carrier capacity
-  ccstd <- TLPR:::carrier_capacity(env)
-  
+  ccstd <- carrier_capacity(env)
+
   # Create padding matrices
   padding <- Matrix::spMatrix(ncol = env$nI + 2L * env$nJ, nrow = env$nCS + env$nCO)
-  
+
   # Return the padded carrier capacity components
   list(
     'A'     = cbind(padding, ccstd$A, padding),
@@ -34,7 +34,7 @@ carrier_capacity_padded <- function(env) {
 transition_logic <- function(env, q, d) {
   # Initialize the transition logic matrix
   A3 <- Matrix::spMatrix(ncol = env$nI + 2L * env$nJ + env$nvars + env$nI + 2L * env$nJ, nrow = env$nI + env$nJ)
-  
+
   # Fill the matrix for items
   for (i in seq(env$nI)) {
     A3[i, i] <- -1L
@@ -42,7 +42,7 @@ transition_logic <- function(env, q, d) {
     A3[i, env$nI + 2L * env$nJ + idx] <- 1L
     A3[i, env$nI + 2L * env$nJ + env$nvars + i] <- 1L
   }
-  
+
   # Fill the matrix for jobs
   for (j in seq(env$nJ)) {
     A3[env$nI + j, env$nI + (j - 1L) * 2L + seq(2L)] <- c(1L, -1L)
@@ -50,7 +50,7 @@ transition_logic <- function(env, q, d) {
     A3[env$nI + j, env$nI + 2L * env$nJ + jdx] <- 1L
     A3[env$nI + j, env$nI + 2L * env$nJ + env$nvars + env$nI + (j - 1L) * 2L + seq(2L)] <- c(-1L, 1L)
   }
-  
+
   # Return the transition logic components
   list(
     'A'     = A3,
@@ -74,11 +74,11 @@ storage_limits <- function(env, q) {
   for (i in seq(env$nI)) {
     A4[i, i] <- 1L
   }
-  
+
   # Create padding for the A4 matrix
   padding <- Matrix::spMatrix(ncol = 2L * env$nJ + env$nvars + env$nI + 2L * env$nJ, nrow = env$nI)
   A4 <- cbind(A4, padding)
-  
+
   # Initialize the storage limit matrix for jobs
   A5 <- Matrix::spMatrix(ncol = 2L * env$nJ + env$nvars, nrow = env$nJ)
   for (j in seq(env$nJ)) {
@@ -116,10 +116,10 @@ multiperiod_expansion <- function(env, A, obj, rhs, sns) {
   offset <- env$nI + 2L * env$nJ
   A.tau <- Matrix::spMatrix(nrow = env$tau * nrow(A), ncol = env$tau * (ncol(A) - offset) + offset)
   A.tau[seq(nrow(A)), seq(ncol(A))] <- A
-  
+
   obj.tau <- numeric(ncol(A.tau))
   rhs.tau <- numeric(nrow(A.tau))
-  
+
   obj.tau[seq(ncol(A) - offset)] <- obj[seq(ncol(A) - offset)]
   rhs.tau[seq(nrow(A))] <- rhs
   for (t in seq(2L, env$tau)) {
@@ -135,7 +135,7 @@ multiperiod_expansion <- function(env, A, obj, rhs, sns) {
     )
   }
   obj.tau[seq(ncol(A.tau) - offset + 1L, ncol(A.tau))] <- env$alpha
-  
+
   # Return the expanded components for multiple periods
   list(
     'obj'   = obj.tau,
@@ -158,7 +158,7 @@ post_hoc_simulation <- function(env, x) {
   S.I <- matrix(NA, nrow = (env$tau + 1L) * env$nI, ncol = 1L)
   S.J <- matrix(NA, nrow = (env$tau + 1L) * env$nJ, ncol = 1L)
   allocation <- matrix(NA, env$tau * env$nvars, ncol = 1L)
-  
+
   offset <- env$nI + 2L * env$nJ
   blk <- offset + env$nvars
   for (t in seq(env$tau + 1L)) {
@@ -171,7 +171,7 @@ post_hoc_simulation <- function(env, x) {
     if (t > env$tau) break
     allocation[(t - 1L) * env$nvars + seq(env$nvars), 1L] <- x[idx][offset + seq(env$nvars)]
   }
-  
+
   # Return the post hoc simulation results
   list(
     'S.I' = S.I,
