@@ -5,8 +5,7 @@ CXX_STD = C++17
 CXXFLAGS = -Wall -O2
 
 # Include directories
-PKG_CPPFLAGS = -I../inst/include
+PKG_CPPFLAGS += -I../inst/include -I/Library/gurobi1102/macos_universal2/include
 
 # Libraries to link against
-# PKG_LIBS =
-
+PKG_LIBS += -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110
