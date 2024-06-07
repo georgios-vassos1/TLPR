@@ -14,10 +14,10 @@
 #' @import data.table
 #' @examples
 #' # Assuming `env`, `S.I`, `S.J`, and `allocation` are defined
-#' graph_dt <- copmute_graph_dt(env, S.I, S.J, allocation)
+#' graph_dt <- compute_graph_dt(env, S.I, S.J, allocation)
 #'
 #' @export
-copmute_graph_dt <- function(env, S.I, S.J, allocation) {
+compute_graph_dt <- function(env, S.I, S.J, allocation) {
   # Create a vector of lanes
   lanes <- c(env$L_, seq(env$nL))
   
