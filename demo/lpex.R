@@ -30,5 +30,5 @@ model$vtype <- rep('C', ncol(model$A))
 opt <- gurobi::gurobi(model, params = list(OutputFlag = 0L))
 
 phs <- post_hoc_simulation(env, opt$x)
-dtx <- copmute_graph_dt(env, phs$S.I, phs$S.J, phs$allocation)
+dtx <- compute_graph_dt(env, phs$S.I, phs$S.J, phs$allocation)
 plot2x2instance(env, dtx, phs$S.I, phs$S.J, Q, D)
