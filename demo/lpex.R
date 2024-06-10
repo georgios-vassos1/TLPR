@@ -23,7 +23,7 @@ A   <- rbind(ccx$A, tlx$A, slx$A)
 rhs <- c(ccx$rhs, tlx$rhs, slx$rhs)
 sns <- c(ccx$sense, tlx$sense, slx$sense)
 
-model <- multiperiod_expansion(env, A, obj_, rhs, sns)
+model <- multiperiod_expansion(env, Q, D, A, obj_, rhs, sns)
 model$modelsense <- 'min'
 model$vtype <- rep('C', ncol(model$A))
 

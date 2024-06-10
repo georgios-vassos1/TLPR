@@ -105,6 +105,8 @@ storage_limits <- function(env, q) {
 #' This function expands the given constraints and objective function for multiple periods.
 #'
 #' @param env The environment list containing various parameters such as nI, nJ, nvars, tau, alpha, and others.
+#' @param Q A numeric vector representing the exogenous arrivals.
+#' @param D A numeric vector representing the exogenous demands.
 #' @param A The constraint matrix.
 #' @param obj The objective function coefficients.
 #' @param rhs The right-hand side vector.
@@ -112,9 +114,9 @@ storage_limits <- function(env, q) {
 #'
 #' @return A list containing the expanded objective function 'obj', constraint matrix 'A', right-hand side 'rhs', and 'sense'.
 #' @export
-multiperiod_expansion <- function(env, A, obj, rhs, sns) {
+multiperiod_expansion <- function(env, Q, D, A, obj, rhs, sns) {
   offset <- env$nI + 2L * env$nJ
-  A.tau <- Matrix::spMatrix(nrow = env$tau * nrow(A), ncol = env$tau * (ncol(A) - offset) + offset)
+  A.tau  <- Matrix::spMatrix(nrow = env$tau * nrow(A), ncol = env$tau * (ncol(A) - offset) + offset)
   A.tau[seq(nrow(A)), seq(ncol(A))] <- A
 
   obj.tau <- numeric(ncol(A.tau))

@@ -4,10 +4,14 @@
 \alias{multiperiod_expansion}
 \title{Multiperiod Expansion}
 \usage{
-multiperiod_expansion(env, A, obj, rhs, sns)
+multiperiod_expansion(env, Q, D, A, obj, rhs, sns)
 }
 \arguments{
 \item{env}{The environment list containing various parameters such as nI, nJ, nvars, tau, alpha, and others.}
+
+\item{Q}{A numeric vector representing the exogenous arrivals.}
+
+\item{D}{A numeric vector representing the exogenous demands.}
 
 \item{A}{The constraint matrix.}
 
