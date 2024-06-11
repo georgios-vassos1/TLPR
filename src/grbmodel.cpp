@@ -5,16 +5,50 @@
 #include <nlohmann/json.hpp>
 
 using namespace std;
-using json  = nlohmann::json;
+
+// Function to flatten a vector of vectors of equal lengths
+std::vector<double> flatten(const std::vector<std::vector<double>>& vecOfVecs) {
+  std::vector<double> flattened;
+  for (const auto& innerVec : vecOfVecs) {
+    flattened.insert(flattened.end(), innerVec.begin(), innerVec.end());
+  }
+  return flattened;
+}
+
+// Function to extract R list from the input JSON
+template<typename T>
+std::unordered_map<std::string, std::vector<T>> importList(const nlohmann::json& input) {
+  std::unordered_map<std::string, std::vector<T>> output;
+
+  // Extract and iterate over the "winner" object
+  for (auto it = input.begin(); it != input.end(); ++it) {
+    // Extract the key (as string) and value (as array) pair
+    std::string key = it.key();
+    std::vector<T> values = it.value().get<std::vector<T>>();
+
+    // Store the key-value pair into the unordered_map
+    output[key] = values;
+  }
+
+  return output;
+}
+
 
 // Function to print the instance
 void printInstance(const std::unordered_map<std::string, std::vector<int>>& winners,
                    const std::vector<std::vector<int>>& bids,
-                   const std::vector<std::vector<int>>& lanes) {
+                   const std::vector<std::vector<int>>& lanes,
+                   const std::unordered_map<std::string, std::vector<double>>& contractRates,
+                   const std::vector<double>& spotRates,
+                   const int& nSpotCarriers,
+                   const int& nLanes) {
+
   // Print winner key-value pairs
   for (const auto& winner : winners) {
-    std::cout << "Carrier index " << winner.first << " ";
+    std::string winnerKey = winner.first;
+    std::cout << "Carrier index " << winnerKey << " ";
 
+    int k = 0;
     for (int bidIndex : winner.second) {
       std::cout << "won bid index " << bidIndex << "!\n";
       const auto& bid = bids[bidIndex - 1];
@@ -22,11 +56,23 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
       for (int laneIndex : bid) {
         std::cout << "Lane index " << laneIndex << ": " << std::endl;
         const auto& lane = lanes[laneIndex - 1];
-        std::cout << "From origin " << lane[0] << " to destination " << lane[1] << std::endl;
+        std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at " << contractRates.at(winnerKey)[k++] << " USD per km." << std::endl;
       }
     }
 
     std::cout << std::endl;
+  }
+
+  // Print spot carrier data
+
+  for (int carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
+    std::cout << "Spot carrier index " << carrierIndex + 1 << " ";
+
+    for (int laneIndex = 0; laneIndex < nLanes; laneIndex++) {
+      std::cout << "Lane index " << laneIndex + 1 << ": " << std::endl;
+      const auto& lane = lanes[laneIndex];
+      std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at " << spotRates[carrierIndex * nLanes + laneIndex] << " USD per km." << std::endl;
+    }
   }
 }
 
@@ -37,6 +83,8 @@ GRBVar* createTransportVars(
     const std::unordered_map<std::string, std::vector<int>>& winners,
     const std::vector<std::vector<int>>& bids,
     const std::vector<std::vector<int>>& lanes,
+    const std::unordered_map<std::string, std::vector<double>>& contractRates,
+    const std::vector<double>& spotRates,
     const int& nSpotCarriers,
     const int& nLanes) {
 
@@ -45,7 +93,9 @@ GRBVar* createTransportVars(
   int idx = 0;
   // Strategic carrier variables
   for (const auto& winner : winners) {
+    std::string winnerKey = winner.first;
 
+    int k = 0;
     for (int bidIndex : winner.second) {
       const auto& bid = bids[bidIndex - 1];
 
@@ -53,9 +103,9 @@ GRBVar* createTransportVars(
         const auto& lane = lanes[laneIndex - 1];
 
         ostringstream vname;
-        vname << "Carrier" << winner.first << ".Bid" << bidIndex << ".Lane" << laneIndex << ".from_" << lane[0] << "_to_" << lane[1];
+        vname << "StrategicCarrier" << winnerKey << ".Bid" << bidIndex << ".Lane" << laneIndex << ".from_" << lane[0] << "_to_" << lane[1];
 
-        transport[idx++] = model.addVar(0.0, GRB_INFINITY, 0.1, GRB_CONTINUOUS, vname.str());
+        transport[idx++] = model.addVar(0.0, GRB_INFINITY, contractRates.at(winnerKey)[k++], GRB_CONTINUOUS, vname.str());
       }
     }
   }
@@ -67,9 +117,9 @@ GRBVar* createTransportVars(
       const auto& lane = lanes[laneIndex];
 
       ostringstream vname;
-      vname << "Carrier" << carrierIndex << ".Lane" << laneIndex << ".from_" << lane[0] << "_to_" << lane[1];
+      vname << "SpotCarrier" << carrierIndex + 1 << ".Lane" << laneIndex + 1 << ".from_" << lane[0] << "_to_" << lane[1];
 
-      transport[idx++] = model.addVar(0.0, GRB_INFINITY, (double)rand() / RAND_MAX, GRB_CONTINUOUS, vname.str());
+      transport[idx++] = model.addVar(0.0, GRB_INFINITY, spotRates[carrierIndex * nLanes + laneIndex], GRB_CONTINUOUS, vname.str());
     }
   }
 
@@ -99,31 +149,39 @@ int main(int argc, char** argv) {
   }
 
   std::ifstream file(argv[1]);
-  json input;
+  nlohmann::json input;
   file >> input;
 
   // Extract the data
+  const int tau = input["tau"][0];
   const int nL_ = input["nL_"][0];
   const int nCO = input["nCO"][0];
   const int nL  = input["nL"][0];
-  const std::vector<double> costs = input["CTb"];
   const std::vector<std::vector<int>> bids = input["B"];
   const std::vector<std::vector<int>> lanes = input["L"];
+
+  std::vector<std::vector<double>> spotRates = input["CTo"];
+
   std::unordered_map<std::string, std::vector<int>> winners;
+  std::unordered_map<std::string, std::vector<double>> CTb;
+  std::unordered_map<std::string, std::vector<int>> Cb;
 
   const int n = nL_ + nCO * nL;
   // Extract and iterate over the "winner" object
-  for (auto it = input["winner"].begin(); it != input["winner"].end(); ++it) {
-      // Extract the key (as string) and value (as array) pair
-      std::string key = it.key();
-      std::vector<int> values = it.value().get<std::vector<int>>();
+  // for (auto it = input["winner"].begin(); it != input["winner"].end(); ++it) {
+  //   // Extract the key (as string) and value (as array) pair
+  //   std::string key = it.key();
+  //   std::vector<int> values = it.value().get<std::vector<int>>();
 
-      // Store the key-value pair into the unordered_map
-      winners[key] = values;
-  }
+  //   // Store the key-value pair into the unordered_map
+  //   winners[key] = values;
+  // }
+  winners = importList<int>(input["winner"]);
+  CTb = importList<double>(input["CTb_list"]);
+  Cb  = importList<int>(input["Cb_list"]);
 
   // Print the strategy of the instance
-  // printInstance(winners, bids, lanes);
+  // printInstance(winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
   // Create the Gurobi environment
   GRBEnv env;
@@ -133,7 +191,7 @@ int main(int argc, char** argv) {
     GRBModel model = GRBModel(env);
     model.set(GRB_StringAttr_ModelName, "Drayage");
 
-    transport = createTransportVars(model, n, winners, bids, lanes, nCO, nL);
+    transport = createTransportVars(model, n, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
     addVolumeConstraint(model, transport, n, 100);
 
