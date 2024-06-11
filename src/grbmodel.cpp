@@ -64,7 +64,6 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
   }
 
   // Print spot carrier data
-
   for (int carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
     std::cout << "Spot carrier index " << carrierIndex + 1 << " ";
 
@@ -141,6 +140,46 @@ void addVolumeConstraint(
   model.addConstr(expr == At, "VolumeConstraint");
 }
 
+void addCapacityConstraints(
+    GRBModel& model, 
+    GRBVar* transport,
+    const int& stage,
+    const std::unordered_map<std::string, std::vector<int>>& winners,
+    const std::vector<std::vector<int>>& bids,
+    const int& nSpotCarriers,
+    const int& nLanes,
+    const std::unordered_map<std::string, std::vector<int>>& capacities) {
+
+  int k = 0;
+
+  // Strategic carrier capacity constraints
+  for (auto& winner : winners) {
+    std::string winnerKey = winner.first;
+    const int capacity = capacities.at(winnerKey).at(stage);
+
+    GRBLinExpr expr = 0;
+    for (int bidIndex : winner.second) {
+      const auto& bid = bids[bidIndex - 1];
+
+      for (int i = 0; i < bid.size(); i++) {
+        expr += transport[k++];
+      }
+    }
+    model.addConstr(expr <= capacity, "CapacityConstraint");
+  }
+
+  // Spot carrier capacity constraints
+  for (int carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
+    const int capacity = 20;
+
+    GRBLinExpr expr = 0;
+    for (int laneIndex = 0; laneIndex < nLanes; laneIndex++) {
+      expr += transport[k++];
+    }
+    model.addConstr(expr <= capacity, "CapacityConstraint");
+  }
+}
+
 
 int main(int argc, char** argv) {
   if (argc < 2) {
@@ -153,7 +192,7 @@ int main(int argc, char** argv) {
   file >> input;
 
   // Extract the data
-  const int tau = input["tau"][0];
+  // const int tau = input["tau"][0];
   const int nL_ = input["nL_"][0];
   const int nCO = input["nCO"][0];
   const int nL  = input["nL"][0];
@@ -193,25 +232,36 @@ int main(int argc, char** argv) {
 
     transport = createTransportVars(model, n, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
-    addVolumeConstraint(model, transport, n, 100);
+    addVolumeConstraint(model, transport, n, 40);
+    addCapacityConstraints(model, transport, 0, winners, bids, nCO, nL, Cb);
 
     // Use barrier to solve root relaxation
     model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+    model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 
     // Solve
     model.optimize();
-
-    // Print transport names and values
-    for (int i = 0; i < n; ++i) {
-      try {
-        std::cout << transport[i].get(GRB_StringAttr_VarName) << " = " << transport[i].get(GRB_DoubleAttr_X) << std::endl;
-      } catch (GRBException& e) {
-        std::cerr << "Error code = " << e.getErrorCode() << std::endl;
-        std::cerr << e.getMessage() << std::endl;
+    int status = model.get(GRB_IntAttr_Status);
+    if (status == GRB_OPTIMAL) {
+      std::cout << "Optimal solution found!" << std::endl;
+      // Print transport names and values
+      std::cout << "Transport volumes:" << std::endl;
+      for (int i = 0; i < n; ++i) {
+        try {
+          std::cout << transport[i].get(GRB_StringAttr_VarName) << " = " << transport[i].get(GRB_DoubleAttr_X) << std::endl;
+        } catch (GRBException& e) {
+          std::cerr << "Error code = " << e.getErrorCode() << std::endl;
+          std::cerr << e.getMessage() << std::endl;
+        }
       }
-    }
 
-    model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+    } else if (status == GRB_INFEASIBLE) {
+      std::cout << "Model is infeasible" << std::endl;
+    } else if (status == GRB_UNBOUNDED) {
+      std::cout << "Model is unbounded" << std::endl;
+    } else {
+      std::cout << "Optimization ended with status " << status << std::endl;
+    }
 
   } catch (GRBException e) {
     cout << "Error code = " << e.getErrorCode() << endl;
