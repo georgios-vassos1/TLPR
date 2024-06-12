@@ -70,7 +70,9 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
       for (size_t laneIndex : bid) {
         std::cout << "Lane index " << laneIndex << ": " << std::endl;
         const auto& lane = lanes[laneIndex - 1];
-        std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at " << contractRates.at(winnerKey)[k++] << " USD per km." << std::endl;
+        std::cout << "From origin "     << lane[0] 
+                  << " to destination " << lane[1] 
+                  << " at " << contractRates.at(winnerKey).at(k++) << " USD per km." << std::endl;
       }
     }
 
@@ -85,9 +87,39 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
 
       std::cout << "Lane index " << laneIndex + 1 << ": " << std::endl;
       const auto& lane = lanes[laneIndex];
-      std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at " << spotRates[carrierIndex * nLanes + laneIndex] << " USD per km." << std::endl;
+      std::cout << "From origin "     << lane[0] 
+                << " to destination " << lane[1] 
+                << " at " << spotRates[carrierIndex * nLanes + laneIndex] << " USD per km." << std::endl;
     }
   }
+}
+
+// Function to print the constraints in a gurobi model
+void printConstraints(GRBModel& model) {
+
+  GRBConstr* constraints = model.getConstrs();
+
+  int numConstraints = model.get(GRB_IntAttr_NumConstrs);
+  for (size_t i = 0; i < numConstraints; ++i) {
+    std::cout << constraints[i].get(GRB_StringAttr_ConstrName) << " = " << constraints[i].get(GRB_DoubleAttr_RHS) << std::endl;
+  }
+
+}
+
+
+// Function to print the optimal transport volumes from gurobi model optimization
+void printOptimalTransportVolumes(GRBVar* transport, const int& n) {
+
+  std::cout << "Transport volumes:" << std::endl;
+  for (size_t i = 0; i < n; ++i) {
+    try {
+      std::cout << transport[i].get(GRB_StringAttr_VarName) << " = " << transport[i].get(GRB_DoubleAttr_X) << std::endl;
+    } catch (GRBException& e) {
+      std::cerr << "Error code = " << e.getErrorCode() << std::endl;
+      std::cerr << e.getMessage() << std::endl;
+    }
+  }
+
 }
 
 // Function to create decision variables for transportation
@@ -117,9 +149,13 @@ GRBVar* createTransportVars(
         const auto& lane = lanes[laneIndex - 1];
 
         ostringstream vname;
-        vname << "StrategicCarrier" << winnerKey << ".Bid" << bidIndex << ".Lane" << laneIndex << ".from_" << lane[0] << "_to_" << lane[1];
+        vname << "StrategicCarrier" << winnerKey 
+              << ".Bid"   << bidIndex 
+              << ".Lane"  << laneIndex 
+              << ".from_" << lane[0] 
+              << "_to_"   << lane[1];
 
-        transport[idx++] = model.addVar(0.0, GRB_INFINITY, contractRates.at(winnerKey)[k++], GRB_CONTINUOUS, vname.str());
+        transport[idx++] = model.addVar(0.0, GRB_INFINITY, contractRates.at(winnerKey).at(k++), GRB_CONTINUOUS, vname.str());
       }
     }
   }
@@ -131,7 +167,10 @@ GRBVar* createTransportVars(
       const auto& lane = lanes[laneIndex];
 
       ostringstream vname;
-      vname << "SpotCarrier" << carrierIndex + 1 << ".Lane" << laneIndex + 1 << ".from_" << lane[0] << "_to_" << lane[1];
+      vname << "SpotCarrier" << carrierIndex + 1 
+            << ".Lane" << laneIndex + 1 
+            << ".from_" << lane[0] 
+            << "_to_" << lane[1];
 
       transport[idx++] = model.addVar(0.0, GRB_INFINITY, spotRates[carrierIndex * nLanes + laneIndex], GRB_CONTINUOUS, vname.str());
     }
@@ -180,7 +219,11 @@ void addCapacityConstraints(
         expr += transport[k++];
       }
     }
-    model.addConstr(expr <= capacity, "CapacityConstraint");
+
+    ostringstream cname;
+    cname << "CapacityConstraint_StrategicCarrier" << winnerKey;
+
+    model.addConstr(expr <= capacity, cname.str());
   }
 
   // Spot carrier capacity constraints
@@ -191,7 +234,11 @@ void addCapacityConstraints(
     for (size_t laneIndex = 0; laneIndex < nLanes; ++laneIndex) {
       expr += transport[k++];
     }
-    model.addConstr(expr <= capacity, "CapacityConstraint");
+
+    ostringstream cname;
+    cname << "CapacityConstraint_SpotCarrier" << carrierIndex + 1;
+
+    model.addConstr(expr <= capacity, cname.str());
   }
 }
 
@@ -243,7 +290,10 @@ void addStorageLimitConstraints(
         }
       }
 
-      model.addConstr(expr <= limits[position + i], "StorageLimitConstraint");
+      ostringstream cname;
+      cname << "StorageLimitConstraint" << m << "_" << i;
+
+      model.addConstr(expr <= limits[position + i], cname.str());
     }
     position += nWarehouses[m];
   }
@@ -315,19 +365,16 @@ int main(int argc, char** argv) {
 
     // Solve
     model.optimize();
+
+    // Print model constraint names and right-hand sides
+    printConstraints(model);
+
     int status = model.get(GRB_IntAttr_Status);
+
     if (status == GRB_OPTIMAL) {
       std::cout << "Optimal solution found!" << std::endl;
       // Print transport names and values
-      std::cout << "Transport volumes:" << std::endl;
-      for (size_t i = 0; i < n; ++i) {
-        try {
-          std::cout << transport[i].get(GRB_StringAttr_VarName) << " = " << transport[i].get(GRB_DoubleAttr_X) << std::endl;
-        } catch (GRBException& e) {
-          std::cerr << "Error code = " << e.getErrorCode() << std::endl;
-          std::cerr << e.getMessage() << std::endl;
-        }
-      }
+      printOptimalTransportVolumes(transport, n);
 
     } else if (status == GRB_INFEASIBLE) {
       std::cout << "Model is infeasible" << std::endl;
