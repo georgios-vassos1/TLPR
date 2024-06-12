@@ -22,7 +22,7 @@ std::vector<int> generateRandomIntegers(int n, int lowerBound, int upperBound) {
     std::mt19937 gen(rd()); // seed the generator
     std::uniform_int_distribution<> distr(lowerBound, upperBound); // define the range
 
-    for (int i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         randomIntegers.push_back(distr(gen));
     }
 
@@ -63,11 +63,11 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
     std::cout << "Carrier index " << winnerKey << " ";
 
     int k = 0;
-    for (int bidIndex : winner.second) {
+    for (size_t bidIndex : winner.second) {
       std::cout << "won bid index " << bidIndex << "!\n";
       const auto& bid = bids[bidIndex - 1];
 
-      for (int laneIndex : bid) {
+      for (size_t laneIndex : bid) {
         std::cout << "Lane index " << laneIndex << ": " << std::endl;
         const auto& lane = lanes[laneIndex - 1];
         std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at " << contractRates.at(winnerKey)[k++] << " USD per km." << std::endl;
@@ -78,10 +78,11 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
   }
 
   // Print spot carrier data
-  for (int carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
+  for (size_t carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
     std::cout << "Spot carrier index " << carrierIndex + 1 << " ";
 
-    for (int laneIndex = 0; laneIndex < nLanes; laneIndex++) {
+    for (size_t laneIndex = 0; laneIndex < nLanes; laneIndex++) {
+
       std::cout << "Lane index " << laneIndex + 1 << ": " << std::endl;
       const auto& lane = lanes[laneIndex];
       std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at " << spotRates[carrierIndex * nLanes + laneIndex] << " USD per km." << std::endl;
@@ -109,10 +110,10 @@ GRBVar* createTransportVars(
     std::string winnerKey = winner.first;
 
     int k = 0;
-    for (int bidIndex : winner.second) {
+    for (size_t bidIndex : winner.second) {
       const auto& bid = bids[bidIndex - 1];
 
-      for (int laneIndex : bid) {
+      for (size_t laneIndex : bid) {
         const auto& lane = lanes[laneIndex - 1];
 
         ostringstream vname;
@@ -124,9 +125,9 @@ GRBVar* createTransportVars(
   }
 
   // Spot carrier variables
-  for (int carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
+  for (size_t carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
 
-    for (int laneIndex = 0; laneIndex < nLanes; laneIndex++) {
+    for (size_t laneIndex = 0; laneIndex < nLanes; laneIndex++) {
       const auto& lane = lanes[laneIndex];
 
       ostringstream vname;
@@ -147,7 +148,7 @@ void addVolumeConstraint(
     const double& At) {
 
   GRBLinExpr expr;
-  for (int i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
       expr += transport[i];
   }
 
@@ -172,10 +173,10 @@ void addCapacityConstraints(
     const int capacity = capacities.at(winnerKey).at(stage);
 
     GRBLinExpr expr = 0;
-    for (int bidIndex : winner.second) {
+    for (size_t bidIndex : winner.second) {
       const auto& bid = bids[bidIndex - 1];
 
-      for (int i = 0; i < bid.size(); ++i) {
+      for (size_t i = 0; i < bid.size(); ++i) {
         expr += transport[k++];
       }
     }
@@ -187,7 +188,7 @@ void addCapacityConstraints(
     const int capacity = 20;
 
     GRBLinExpr expr = 0;
-    for (int laneIndex = 0; laneIndex < nLanes; ++laneIndex) {
+    for (size_t laneIndex = 0; laneIndex < nLanes; ++laneIndex) {
       expr += transport[k++];
     }
     model.addConstr(expr <= capacity, "CapacityConstraint");
@@ -319,7 +320,7 @@ int main(int argc, char** argv) {
       std::cout << "Optimal solution found!" << std::endl;
       // Print transport names and values
       std::cout << "Transport volumes:" << std::endl;
-      for (int i = 0; i < n; ++i) {
+      for (size_t i = 0; i < n; ++i) {
         try {
           std::cout << transport[i].get(GRB_StringAttr_VarName) << " = " << transport[i].get(GRB_DoubleAttr_X) << std::endl;
         } catch (GRBException& e) {
