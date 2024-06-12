@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <random>
 
 using namespace std;
 
@@ -13,6 +14,19 @@ std::vector<double> flatten(const std::vector<std::vector<double>>& vecOfVecs) {
     flattened.insert(flattened.end(), innerVec.begin(), innerVec.end());
   }
   return flattened;
+}
+
+std::vector<int> generateRandomIntegers(int n, int lowerBound, int upperBound) {
+    std::vector<int> randomIntegers;
+    std::random_device rd;  // obtain a random number from hardware
+    std::mt19937 gen(rd()); // seed the generator
+    std::uniform_int_distribution<> distr(lowerBound, upperBound); // define the range
+
+    for (int i = 0; i < n; ++i) {
+        randomIntegers.push_back(distr(gen));
+    }
+
+    return randomIntegers;
 }
 
 // Function to extract R list from the input JSON
@@ -161,7 +175,7 @@ void addCapacityConstraints(
     for (int bidIndex : winner.second) {
       const auto& bid = bids[bidIndex - 1];
 
-      for (int i = 0; i < bid.size(); i++) {
+      for (int i = 0; i < bid.size(); ++i) {
         expr += transport[k++];
       }
     }
@@ -169,17 +183,70 @@ void addCapacityConstraints(
   }
 
   // Spot carrier capacity constraints
-  for (int carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
+  for (int carrierIndex = 0; carrierIndex < nSpotCarriers; ++carrierIndex) {
     const int capacity = 20;
 
     GRBLinExpr expr = 0;
-    for (int laneIndex = 0; laneIndex < nLanes; laneIndex++) {
+    for (int laneIndex = 0; laneIndex < nLanes; ++laneIndex) {
       expr += transport[k++];
     }
     model.addConstr(expr <= capacity, "CapacityConstraint");
   }
 }
 
+void addStorageLimitConstraints(
+    GRBModel& model, 
+    GRBVar* transport,
+    const std::unordered_map<std::string, std::vector<int>>& winners,
+    const std::vector<std::vector<int>>& bids,
+    const std::vector<std::vector<int>>& lanes,
+    const int& nSpotCarriers,
+    const int& nLanes,
+    const std::vector<int>& nWarehouses, // (nOrigins, nDestinations)
+    const std::vector<int>& limits) {
+
+  int position = 0;
+  for (size_t m = 0; m < nWarehouses.size(); ++m) {
+
+    for (size_t i = 0; i < nWarehouses[m]; ++i) {
+      GRBLinExpr expr = 0;
+      int k = 0;
+
+      // Strategic carrier capacity constraints
+      for (const auto& winner : winners) {
+
+        for (size_t bidIndex : winner.second) {
+          const auto& bid = bids[bidIndex - 1];
+
+          for (size_t laneIndex : bid) {
+            const auto& lane = lanes[laneIndex - 1];
+
+            if (lane[m] == i + 1) {
+              expr += transport[k];
+            }
+            k++;
+          }
+        }
+      }
+
+      // Spot carrier capacity constraints
+      for (size_t carrierIndex = 0; carrierIndex < nSpotCarriers; ++carrierIndex) {
+
+        for (size_t laneIndex = 0; laneIndex < nLanes; ++laneIndex) {
+          const auto& lane = lanes[laneIndex];
+
+          if (lane[m] == i + 1) {
+            expr += transport[k];
+          }
+          k++;
+        }
+      }
+
+      model.addConstr(expr <= limits[position + i], "StorageLimitConstraint");
+    }
+    position += nWarehouses[m];
+  }
+}
 
 int main(int argc, char** argv) {
   if (argc < 2) {
@@ -193,6 +260,8 @@ int main(int argc, char** argv) {
 
   // Extract the data
   // const int tau = input["tau"][0];
+  const int nOrigins = input["nI"][0];
+  const int nDestinations = input["nJ"][0];
   const int nL_ = input["nL_"][0];
   const int nCO = input["nCO"][0];
   const int nL  = input["nL"][0];
@@ -206,6 +275,7 @@ int main(int argc, char** argv) {
   std::unordered_map<std::string, std::vector<int>> Cb;
 
   const int n = nL_ + nCO * nL;
+  const std::vector<int> nWarehouses = {nOrigins, nDestinations};
   // Extract and iterate over the "winner" object
   // for (auto it = input["winner"].begin(); it != input["winner"].end(); ++it) {
   //   // Extract the key (as string) and value (as array) pair
@@ -218,6 +288,8 @@ int main(int argc, char** argv) {
   winners = importList<int>(input["winner"]);
   CTb = importList<double>(input["CTb_list"]);
   Cb  = importList<int>(input["Cb_list"]);
+
+  const std::vector<int> limits = generateRandomIntegers(nOrigins + nDestinations, 20, 40);
 
   // Print the strategy of the instance
   // printInstance(winners, bids, lanes, CTb, spotRates[0], nCO, nL);
@@ -234,6 +306,7 @@ int main(int argc, char** argv) {
 
     addVolumeConstraint(model, transport, n, 40);
     addCapacityConstraints(model, transport, 0, winners, bids, nCO, nL, Cb);
+    addStorageLimitConstraints(model, transport, winners, bids, lanes, nCO, nL, nWarehouses, limits);
 
     // Use barrier to solve root relaxation
     model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
