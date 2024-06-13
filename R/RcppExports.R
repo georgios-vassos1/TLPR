@@ -9,3 +9,11 @@ processListSEXP <- function(list_sexp, is_map, KeyTypeArg) {
     invisible(.Call('_TLPR_processListSEXP', PACKAGE = 'TLPR', list_sexp, is_map, KeyTypeArg))
 }
 
+CartesianProductRcpp <- function(vectors) {
+    .Call('_TLPR_CartesianProductRcpp', PACKAGE = 'TLPR', vectors)
+}
+
+CartesianProductRcppParallel <- function(vectors, numThreads = 8L) {
+    .Call('_TLPR_CartesianProductRcppParallel', PACKAGE = 'TLPR', vectors, numThreads)
+}
+

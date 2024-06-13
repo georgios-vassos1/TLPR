@@ -34,10 +34,35 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// CartesianProductRcpp
+Eigen::MatrixXi CartesianProductRcpp(List vectors);
+RcppExport SEXP _TLPR_CartesianProductRcpp(SEXP vectorsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type vectors(vectorsSEXP);
+    rcpp_result_gen = Rcpp::wrap(CartesianProductRcpp(vectors));
+    return rcpp_result_gen;
+END_RCPP
+}
+// CartesianProductRcppParallel
+Eigen::MatrixXi CartesianProductRcppParallel(List vectors, int numThreads);
+RcppExport SEXP _TLPR_CartesianProductRcppParallel(SEXP vectorsSEXP, SEXP numThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type vectors(vectorsSEXP);
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(CartesianProductRcppParallel(vectors, numThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_r_to_eigen", (DL_FUNC) &_TLPR_r_to_eigen, 1},
     {"_TLPR_processListSEXP", (DL_FUNC) &_TLPR_processListSEXP, 3},
+    {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
+    {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {NULL, NULL, 0}
 };
 
