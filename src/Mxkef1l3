@@ -1,0 +1,25 @@
+CXX = g++
+CXXFLAGS = -std=c++17
+INCLUDES = -I/Library/Frameworks/R.framework/Versions/4.2/Resources/library/Rcpp/include
+LIBS = -L/Library/Frameworks/R.framework/Resources/lib -lR \
+       -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110
+
+SOURCE = grbmodel.cpp
+
+# Default target
+.PHONY: all
+all: executable library
+
+# Executable build
+executable: $(SOURCE)
+	$(CXX) $(CXXFLAGS) -o xx $(SOURCE) $(INCLUDES) $(LIBS)
+
+# Shared library build
+library: CXXFLAGS += -fPIC
+library: $(SOURCE)
+	$(CXX) $(CXXFLAGS) -shared -o libxx.so $(SOURCE) $(INCLUDES) $(LIBS)
+
+# Clean target
+.PHONY: clean
+clean:
+	rm -f xx libxx.so
