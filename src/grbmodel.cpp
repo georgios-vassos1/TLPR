@@ -459,7 +459,7 @@ Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>&
 }
 
 // [[Rcpp::export]]
-Eigen::MatrixXi CartesianProductRcppParallel(List vectors, int numThreads = 8) {
+Eigen::MatrixXi CartesianProductRcppParallel(List vectors, int numThreads) {
     std::vector<std::vector<int>> cpp_vectors;
     for (int i = 0; i < vectors.size(); ++i) {
         cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
