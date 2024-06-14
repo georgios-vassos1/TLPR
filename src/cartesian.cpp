@@ -97,7 +97,7 @@ Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>&
   size_t start = 0;
   for (size_t i = 0; i < numThreads; ++i) {
     size_t end = start + combinationsPerThread + (i < remainder ? 1 : 0);
-    threads.emplace_back(generateCombinations, std::ref(vectors), std::ref(results), start, end);
+    threads.emplace_back(generateCombinations, std::cref(vectors), std::ref(results), start, end);
     start = end;
   }
 
