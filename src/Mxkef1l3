@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++17
-INCLUDES = -I/Library/Frameworks/R.framework/Versions/4.2/Resources/library/Rcpp/include
+INCLUDES = -I../inst/include -I/Library/Frameworks/R.framework/Versions/4.2/Resources/library/Rcpp/include
 LIBS = -L/Library/Frameworks/R.framework/Resources/lib -lR \
        -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110
 
