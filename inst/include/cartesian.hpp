@@ -14,6 +14,7 @@ void generateCombinations(const std::vector<std::vector<int>>& vectors, Eigen::M
 
 // Function to generate all combinations in parallel
 Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>& vectors, const size_t numThreads);
+Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int>>& vectors, const size_t numThreads);
 
 #endif // CARTESIAN_HPP
 

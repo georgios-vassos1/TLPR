@@ -1,5 +1,6 @@
 #include "cartesian.hpp"
 #include <iostream>
+#include <future>
 #include <thread>
 #include <Rcpp.h>
 
@@ -109,6 +110,43 @@ Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>&
   return results;
 }
 
+// Function to generate all combinations in parallel using load balancing between threads
+Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int>>& vectors, const size_t numThreads) {
+  if (vectors.empty()) return Eigen::MatrixXi(0, 0);
+
+  // Compute the total number of combinations
+  size_t totalCombinations = 1;
+  for (const auto& vec : vectors) {
+    if (vec.empty()) return Eigen::MatrixXi(0, vectors.size()); // Early return if any input vector is empty
+    totalCombinations *= vec.size();
+  }
+
+  // Create an Eigen matrix to hold the results
+  Eigen::MatrixXi results(totalCombinations, vectors.size());
+  std::vector<std::future<void>> futures;
+
+  // Determine the range of combinations each thread will handle
+  size_t combinationsPerThread = totalCombinations / numThreads;
+  size_t remainder = totalCombinations % numThreads;
+
+  // Launch threads
+  size_t start = 0;
+  for (size_t i = 0; i < numThreads; ++i) {
+    size_t end = start + combinationsPerThread + (i < remainder ? 1 : 0);
+    futures.push_back(
+      std::async(std::launch::async, generateCombinations, std::cref(vectors), std::ref(results), start, end)
+    );
+    start = end;
+  }
+
+  // Join threads
+  for (auto& fut : futures) {
+    fut.get();
+  }
+
+  return results;
+}
+
 // Wrapper function to call CartesianProductInt from R
 // [[Rcpp::export]]
 Eigen::MatrixXi CartesianProductRcpp(List vectors) {
@@ -129,6 +167,17 @@ Eigen::MatrixXi CartesianProductRcppParallel(List vectors, int numThreads) {
     }
 
     return CartesianProductIntParallel(cpp_vectors, numThreads);
+}
+
+// Wrapper function to call CartesianProductIntParallel from R
+// [[Rcpp::export]]
+Eigen::MatrixXi CartesianProductRcppParallelxLB(List vectors, int numThreads) {
+    std::vector<std::vector<int>> cpp_vectors;
+    for (int i = 0; i < vectors.size(); ++i) {
+        cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
+    }
+
+    return CartesianProductIntParallelxLB(cpp_vectors, numThreads);
 }
 
 // int main(int argc, char** argv) {

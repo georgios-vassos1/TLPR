@@ -17,3 +17,7 @@ CartesianProductRcppParallel <- function(vectors, numThreads) {
     .Call('_TLPR_CartesianProductRcppParallel', PACKAGE = 'TLPR', vectors, numThreads)
 }
 
+CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
+    .Call('_TLPR_CartesianProductRcppParallelxLB', PACKAGE = 'TLPR', vectors, numThreads)
+}
+
