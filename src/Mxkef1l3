@@ -1,25 +1,33 @@
 CXX = g++
 CXXFLAGS = -std=c++17
-INCLUDES = -I../inst/include -I/Library/Frameworks/R.framework/Versions/4.2/Resources/library/Rcpp/include
-LIBS = -L/Library/Frameworks/R.framework/Resources/lib -lR \
-       -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110
 
-SOURCE = grbmodel.cpp
+# Common include path
+COMMON_INCLUDES = -I../inst/include
+
+# Specific include paths
+NLOHMANN_JSON_INCLUDE = -I/usr/local/opt/nlohmann-json/include
+GUROBI_INCLUDE = -I/Library/gurobi1102/macos_universal2/include
+R_INCLUDE = -I/Library/Frameworks/R.framework/Versions/4.2/Resources/library/Rcpp/include
+
+# Library paths and libraries
+R_LIBS = -L/Library/Frameworks/R.framework/Resources/lib -lR
+GUROBI_LIBS = -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110
+
+.PHONY: all grbmodelxx readerxx xx clean
 
 # Default target
-.PHONY: all
-all: executable library
+all: grbmodelxx readerxx cartesianxx
 
-# Executable build
-executable: $(SOURCE)
-	$(CXX) $(CXXFLAGS) -o xx $(SOURCE) $(INCLUDES) $(LIBS)
+# Build targets for different executables
+grbmodelxx: reader.cpp grbmodel.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(COMMON_INCLUDES) $(NLOHMANN_JSON_INCLUDE) $(GUROBI_INCLUDE) $(R_INCLUDE) $(R_LIBS) $(GUROBI_LIBS)
 
-# Shared library build
-library: CXXFLAGS += -fPIC
-library: $(SOURCE)
-	$(CXX) $(CXXFLAGS) -shared -o libxx.so $(SOURCE) $(INCLUDES) $(LIBS)
+readerxx: reader.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(COMMON_INCLUDES) $(NLOHMANN_JSON_INCLUDE)
 
-# Clean target
-.PHONY: clean
+cartesianxx: cartesian.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(COMMON_INCLUDES) $(R_INCLUDE) $(R_LIBS)
+
+# Clean target to remove built files
 clean:
-	rm -f xx libxx.so
+	rm -f grbmodelxx readerxx xx
