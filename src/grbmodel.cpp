@@ -1,11 +1,12 @@
-#include "reader.hpp"
 #include <iostream>
 #include <fstream>
-#include "gurobi_c++.h"
 #include <sstream>
-#include <Eigen/Dense>
 #include <random>
 #include <thread>
+#include <Eigen/Dense>
+
+#include "gurobi_c++.h"
+#include "reader.hpp"
 
 using namespace std;
 
