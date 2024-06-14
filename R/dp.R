@@ -166,7 +166,7 @@ compute_environment <- function(env, env.dp, t, start, end, scenaria, weights, F
           env, 
           pmax(pmin(env.dp$SI_[env.dp$Sdx[i,env$I_]] + q, env$R) - xI, 0L), 
           pmin(pmax(env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]] - d, -env$R) + xJ, env$R), 
-          max.S, weights)
+          env.dp$max.S, weights)
 
         # Store into the transition matrix
         transit[((i-start)*env.dp$nA+(j-1L))*nScen+k,] <- c(
