@@ -7,38 +7,9 @@
 
 #include "gurobi_c++.h"
 #include "reader.hpp"
+#include "utils.hpp"
 
 using namespace std;
-
-// Helper function to print tuples
-template<class... Args>
-void printTuple(const std::tuple<Args...>& t) {
-    std::apply([](auto&&... args){((std::cout << args << ", "), ...);}, t);
-    std::cout << std::endl;
-}
-
-// Function to flatten a vector of vectors of equal lengths
-std::vector<double> flatten(const std::vector<std::vector<double>>& vecOfVecs) {
-  std::vector<double> flattened;
-  for (const auto& innerVec : vecOfVecs) {
-    flattened.insert(flattened.end(), innerVec.begin(), innerVec.end());
-  }
-  return flattened;
-}
-
-// Function to generate random integers
-std::vector<int> generateRandomIntegers(int n, int lowerBound, int upperBound) {
-    std::vector<int> randomIntegers;
-    std::random_device rd;  // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-    std::uniform_int_distribution<> distr(lowerBound, upperBound); // define the range
-
-    for (size_t i = 0; i < n; ++i) {
-        randomIntegers.push_back(distr(gen));
-    }
-
-    return randomIntegers;
-}
 
 // Function to print the constraints in a gurobi model
 void printConstraints(GRBModel& model) {
@@ -295,7 +266,7 @@ int main(int argc, char** argv) {
   //   std::cout << "Carrier " << carrier.first << " has index " << carrier.second << std::endl;
   // }
 
-  const std::vector<int> limits = generateRandomIntegers(nOrigins + nDestinations, 20, 40);
+  const std::vector<int> limits = utils::generateRandomIntegers(nOrigins + nDestinations, 20, 40);
 
   // Print the strategy of the instance
   // printInstance(winners, bids, lanes, CTb, spotRates[0], nCO, nL);
