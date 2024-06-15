@@ -1,15 +1,14 @@
-#include <iostream>
+#include "gurobi_c++.h"
 #include <fstream>
 #include <sstream>
-#include <random>
 #include <thread>
 #include <Eigen/Dense>
 
-#include "gurobi_c++.h"
 #include "reader.hpp"
 #include "utils.hpp"
 
 using namespace std;
+
 
 // Function to print the constraints in a gurobi model
 void printConstraints(GRBModel& model) {

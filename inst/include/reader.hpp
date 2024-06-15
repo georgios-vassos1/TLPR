@@ -2,6 +2,10 @@
 #define READER_HPP
 
 #include <nlohmann/json.hpp>
+#include <unordered_map>
+#include <vector>
+#include <string>
+#include <stdexcept>
 
 // Function to extract an unordered map (dictionary) from the input JSON
 // @param input JSON object to parse

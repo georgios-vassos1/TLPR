@@ -1,6 +1,7 @@
-#include "reader.hpp"
 #include <iostream>
 #include <fstream>
+
+#include "reader.hpp"
 
 using namespace std;
 

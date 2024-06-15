@@ -1,8 +1,9 @@
-#include "cartesian.hpp"
 #include <iostream>
 #include <future>
 #include <thread>
 #include <Rcpp.h>
+
+#include "cartesian.hpp"
 
 using namespace std;
 using namespace Rcpp;
