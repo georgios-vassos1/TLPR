@@ -8,7 +8,7 @@
 #' mat <- matrix(1:9, ncol = 3)
 #' rev_cols(mat)
 rev_cols <- function(X) {
-  X[, rev(seq(ncol(X)))]
+  X[, seq(ncol(X), 1L)]
 }
 
 #' Consolidate indices from lists
