@@ -20,9 +20,6 @@ std::vector<std::vector<int>> CartesianProductIntSTL(const std::vector<std::vect
   }
   results.reserve(totalCombinations);
 
-  // Index array to track position in each vector
-  std::vector<size_t> indices(vectors.size(), 0);
-
   // Main loop to generate all combinations
   for (size_t count = 0; count < totalCombinations; ++count) {
     std::vector<int> current;
