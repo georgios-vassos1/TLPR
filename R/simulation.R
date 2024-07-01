@@ -35,7 +35,7 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
     idx <- (t-1L)*env$nI+env$I_
     jdx <- (t-1L)*env$nJ+env$J_
 
-    q[t] <- min(sample(env$Cb[t,]+env$Co[t,], 1L), colSums(S.I[idx,,drop=F]+Q[idx]))
+    q[t] <- min(sample(sum(env$Cb[t,])+sum(env$Co[t,]), 1L), colSums(S.I[idx,,drop=F]+Q[idx]))
 
     args[["obj_"]] <- c(env$CTb, env$CTo[t,])
     args[["n"]]    <- q[t]
