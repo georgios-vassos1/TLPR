@@ -6,7 +6,7 @@
 #' @param J A vector representing the destinations.
 #' @return A matrix of lanes.
 get_lanes <- function(I, J) {
-  unname(as.matrix(data.table::CJ(I, J)))[,c(2L,1L),drop = F] # reverse order of columns
+  unname(as.matrix(data.table::CJ(J, I)))[,c(2L,1L),drop = F] # reverse order of columns
 }
 
 #' Generate Bid
