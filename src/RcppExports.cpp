@@ -69,6 +69,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// optimizeModelFromJSON
+Rcpp::List optimizeModelFromJSON(std::string jsonFile);
+RcppExport SEXP _TLPR_optimizeModelFromJSON(SEXP jsonFileSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type jsonFile(jsonFileSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimizeModelFromJSON(jsonFile));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_r_to_eigen", (DL_FUNC) &_TLPR_r_to_eigen, 1},
@@ -76,6 +87,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
+    {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 1},
     {NULL, NULL, 0}
 };
 

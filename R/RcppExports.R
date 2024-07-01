@@ -21,3 +21,7 @@ CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
     .Call('_TLPR_CartesianProductRcppParallelxLB', PACKAGE = 'TLPR', vectors, numThreads)
 }
 
+optimizeModelFromJSON <- function(jsonFile) {
+    .Call('_TLPR_optimizeModelFromJSON', PACKAGE = 'TLPR', jsonFile)
+}
+

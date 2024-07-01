@@ -3,9 +3,10 @@
 #include <sstream>
 #include <thread>
 #include <Eigen/Dense>
+#include <Rcpp.h>
 
-#include "reader.hpp"
-#include "utils.hpp"
+#include "../inst/include/reader.hpp"
+#include "../inst/include/utils.hpp"
 
 using namespace std;
 
@@ -143,7 +144,7 @@ void addCapacityConstraints(
   }
 
   // Spot carrier capacity constraints
-  for (int spotCarrierIdx = 0; spotCarrierIdx < nSpotCarriers; ++spotCarrierIdx) {
+  for (size_t spotCarrierIdx = 0; spotCarrierIdx < nSpotCarriers; ++spotCarrierIdx) {
     const int capacity = spotCaps.at(spotCarrierIdx);
 
     GRBLinExpr expr = 0;
@@ -215,6 +216,107 @@ void addStorageLimitConstraints(
   }
 }
 
+// Optimize the model and reurn objective and decision in R list
+// [[Rcpp::export]]
+Rcpp::List optimizeModelFromJSON(std::string jsonFile) {
+
+  // Read the JSON file
+  std::ifstream file(jsonFile);
+  nlohmann::json input;
+  file >> input;
+
+  // Extract the data
+  const int nOrigins = input["nI"][0];
+  const int nDestinations = input["nJ"][0];
+  const int nL_ = input["nL_"][0];
+  const int nCO = input["nCO"][0];
+  const int nL  = input["nL"][0];
+  const std::vector<std::vector<int>> bids = input["B"];
+  const std::vector<std::vector<int>> lanes = input["L"];
+  const std::vector<std::vector<int>> Cb = input["Cb"];
+  const std::vector<std::vector<int>> Co = input["Co"];
+  const std::vector<std::vector<double>> spotRates = input["CTo"];
+
+  std::unordered_map<std::string, std::vector<int>> winners;
+  std::unordered_map<std::string, std::vector<double>> CTb;
+  std::unordered_map<std::string, int> carrierIdx;
+
+  winners = importListOfVectors<int>(input["winner"]);
+  CTb = importListOfVectors<double>(input["CTb_list"]);
+  carrierIdx = importList<int>(input["carrierIdx"]);
+
+  const int n = nL_ + nCO * nL;
+  const std::vector<int> nWarehouses = {nOrigins, nDestinations};
+  const std::vector<int> limits = utils::generateRandomIntegers(nOrigins + nDestinations, 20, 40);
+  // Print limits 
+  std::cout << "Storage limits: ";
+  std::copy(limits.begin(), limits.end(), std::ostream_iterator<int>(std::cout, " "));
+  std::cout << std::endl;
+
+  // Create the Gurobi environment
+  GRBEnv env;
+  GRBVar* transport = nullptr;
+
+  // Preallocate the result list
+  Rcpp::List result = Rcpp::List::create(
+    Rcpp::_["objval"] = 0.0,  // Placeholder for objective value
+    Rcpp::_["x"] = Rcpp::NumericVector(n)  // Placeholder for decision variables 'x'
+  );
+
+  // Optimize the model
+  try {
+
+    GRBModel model = GRBModel(env);
+    model.set(GRB_StringAttr_ModelName, "Drayage");
+
+    transport = createTransportVars(model, n, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
+
+    addVolumeConstraint(model, transport, n, 40);
+    addCapacityConstraints(model, transport, winners, bids, carrierIdx, nCO, nL, Cb[0], Co[0]);
+    addStorageLimitConstraints(model, transport, winners, bids, lanes, nCO, nL, nWarehouses, limits);
+
+    // Use barrier to solve root relaxation
+    model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+    model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+
+    // Solve
+    model.optimize();
+
+    int status = model.get(GRB_IntAttr_Status);
+
+    if (status == GRB_OPTIMAL) {
+      std::cout << "Optimal solution found!" << std::endl;
+
+      result["objval"] = model.get(GRB_DoubleAttr_ObjVal);
+
+      Rcpp::NumericVector x(n);
+      for (size_t i = 0; i < n; i++) {
+        x[i] = transport[i].get(GRB_DoubleAttr_X);
+      }
+      result["x"] = x;
+
+    } else if (status == GRB_INFEASIBLE) {
+      std::cout << "Model is infeasible" << std::endl;
+    } else if (status == GRB_UNBOUNDED) {
+      std::cout << "Model is unbounded" << std::endl;
+    } else {
+      std::cout << "Optimization ended with status " << status << std::endl;
+    }
+
+    delete [] transport;
+
+    return result;
+
+  } catch (GRBException e) {
+    cout << "Error code = " << e.getErrorCode() << endl;
+    cout << e.getMessage() << endl;
+  } catch (...) {
+    cout << "Exception during optimization" << endl;
+  }
+
+  return Rcpp::List::create();
+}
+
 
 int main(int argc, char** argv) {
   if (argc < 2) {
@@ -230,9 +332,9 @@ int main(int argc, char** argv) {
   // const int tau = input["tau"][0];
   const int nOrigins = input["nI"][0];
   const int nDestinations = input["nJ"][0];
-  // const int nL_ = input["nL_"][0];
-  // const int nCO = input["nCO"][0];
-  // const int nL  = input["nL"][0];
+  const int nL_ = input["nL_"][0];
+  const int nCO = input["nCO"][0];
+  const int nL  = input["nL"][0];
   const std::vector<std::vector<int>> bids = input["B"];
   const std::vector<std::vector<int>> lanes = input["L"];
   const std::vector<std::vector<int>> Cb = input["Cb"];
@@ -245,7 +347,7 @@ int main(int argc, char** argv) {
   // std::unordered_map<std::string, std::vector<int>> Cb;
   std::unordered_map<std::string, int> carrierIdx;
 
-  // const int n = nL_ + nCO * nL;
+  const int n = nL_ + nCO * nL;
   const std::vector<int> nWarehouses = {nOrigins, nDestinations};
   // Extract and iterate over the "winner" object
   // for (auto it = input["winner"].begin(); it != input["winner"].end(); ++it) {
@@ -271,54 +373,54 @@ int main(int argc, char** argv) {
   // printInstance(winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
   // Create the Gurobi environment
-  // GRBEnv env;
-  // GRBVar* transport = nullptr;
+  GRBEnv env;
+  GRBVar* transport = nullptr;
 
-  // try {
-  //   GRBModel model = GRBModel(env);
-  //   model.set(GRB_StringAttr_ModelName, "Drayage");
+  try {
+    GRBModel model = GRBModel(env);
+    model.set(GRB_StringAttr_ModelName, "Drayage");
 
-  //   transport = createTransportVars(model, n, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
+    transport = createTransportVars(model, n, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
-  //   addVolumeConstraint(model, transport, n, 40);
-  //   addCapacityConstraints(model, transport, winners, bids, carrierIdx, nCO, nL, Cb[0], Co[0]);
-  //   addStorageLimitConstraints(model, transport, winners, bids, lanes, nCO, nL, nWarehouses, limits);
+    addVolumeConstraint(model, transport, n, 40);
+    addCapacityConstraints(model, transport, winners, bids, carrierIdx, nCO, nL, Cb[0], Co[0]);
+    addStorageLimitConstraints(model, transport, winners, bids, lanes, nCO, nL, nWarehouses, limits);
 
-  //   // Use barrier to solve root relaxation
-  //   model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
-  //   model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+    // Use barrier to solve root relaxation
+    model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+    model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 
-  //   // Solve
-  //   model.optimize();
+    // Solve
+    model.optimize();
 
-  //   int status = model.get(GRB_IntAttr_Status);
+    int status = model.get(GRB_IntAttr_Status);
 
-  //   if (status == GRB_OPTIMAL) {
-  //     std::cout << "Optimal solution found!" << std::endl;
+    if (status == GRB_OPTIMAL) {
+      std::cout << "Optimal solution found!" << std::endl;
 
-  //     // Print transport names and values
-  //     printOptimalTransportVolumes(transport, n);
+      // Print transport names and values
+      printOptimalTransportVolumes(transport, n);
 
-  //     // Print model constraint names and right-hand sides
-  //     // printConstraints(model);
+      // Print model constraint names and right-hand sides
+      printConstraints(model);
 
-  //   } else if (status == GRB_INFEASIBLE) {
-  //     std::cout << "Model is infeasible" << std::endl;
-  //   } else if (status == GRB_UNBOUNDED) {
-  //     std::cout << "Model is unbounded" << std::endl;
-  //   } else {
-  //     std::cout << "Optimization ended with status " << status << std::endl;
-  //   }
+    } else if (status == GRB_INFEASIBLE) {
+      std::cout << "Model is infeasible" << std::endl;
+    } else if (status == GRB_UNBOUNDED) {
+      std::cout << "Model is unbounded" << std::endl;
+    } else {
+      std::cout << "Optimization ended with status " << status << std::endl;
+    }
 
-  // } catch (GRBException e) {
-  //   cout << "Error code = " << e.getErrorCode() << endl;
-  //   cout << e.getMessage() << endl;
-  // } catch (...) {
-  //   cout << "Exception during optimization" << endl;
-  // }
+  } catch (GRBException e) {
+    cout << "Error code = " << e.getErrorCode() << endl;
+    cout << e.getMessage() << endl;
+  } catch (...) {
+    cout << "Exception during optimization" << endl;
+  }
 
 
-  // delete[] transport;
+  delete[] transport;
 
   return 0;
 }
