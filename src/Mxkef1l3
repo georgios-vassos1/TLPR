@@ -19,7 +19,7 @@ GUROBI_LIBS = -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi11
 all: grbmodelxx readerxx cartesianxx
 
 # Build targets for different executables
-grbmodelxx: reader.cpp utils.cpp grbmodel.cpp
+grbmodelxx: reader.cpp utils.cpp cartesian.cpp grbmodel.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(COMMON_INCLUDES) $(NLOHMANN_JSON_INCLUDE) $(GUROBI_INCLUDE) $(R_INCLUDE) $(R_LIBS) $(GUROBI_LIBS)
 
 readerxx: reader.cpp
