@@ -4,7 +4,7 @@
 \alias{get_state_indices}
 \title{Endogenous state vector}
 \usage{
-get_state_indices(env, nI, nJ, max_, incr_)
+get_state_indices(env, nI, nJ, max_, incr_ = 1L)
 }
 \arguments{
 \item{env}{Environment to host dynamic programming data}
