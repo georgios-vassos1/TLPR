@@ -21,6 +21,14 @@ CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
     .Call('_TLPR_CartesianProductRcppParallelxLB', PACKAGE = 'TLPR', vectors, numThreads)
 }
 
+#' @useDynLib TLPR
+#' @export
+computeEnvironmentSTL <- function(jsonFile, stateSupport, uncertaintySupport) {
+    .Call('_TLPR_computeEnvironmentSTL', PACKAGE = 'TLPR', jsonFile, stateSupport, uncertaintySupport)
+}
+
+#' @useDynLib TLPR
+#' @export
 optimizeModelFromJSON <- function(jsonFile) {
     .Call('_TLPR_optimizeModelFromJSON', PACKAGE = 'TLPR', jsonFile)
 }

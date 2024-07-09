@@ -2,11 +2,23 @@
 #include <fstream>
 #include <sstream>
 #include <thread>
-#include <Eigen/Dense>
 #include <Rcpp.h>
 
-#include "reader.hpp"
-#include "utils.hpp"
+#ifdef READER_HPP 
+  #include "reader.hpp"
+#else
+  #include "../inst/include/reader.hpp"
+#endif
+#ifdef UTILS_HPP 
+  #include "utils.hpp"
+#else
+  #include "../inst/include/utils.hpp"
+#endif
+#ifdef CARTESIAN_HPP
+  #include "cartesian.hpp"
+#else
+  #include "../inst/include/cartesian.hpp"
+#endif
 
 using namespace std;
 
@@ -220,7 +232,213 @@ void addStorageLimitConstraints(
   }
 }
 
+// Function to stack state index vectors
+std::vector<std::vector<int>> stackStateIdxVectors(
+    const int& nInventoryLevels, 
+    const int& nOrigins, 
+    const int& nDestinations) {
+
+    std::vector<std::vector<int>> stateIdx;
+    stateIdx.reserve(nOrigins + nDestinations);
+
+    const auto idx = utils::createIndexVector(nInventoryLevels);
+    const auto jdx = utils::createIndexVector(2 * nInventoryLevels - 1);
+
+    utils::appendIndexVectors(stateIdx, idx, nOrigins);
+    utils::appendIndexVectors(stateIdx, jdx, nDestinations);
+
+    return stateIdx;
+}
+
+// Function to stack uncertainty index vectors
+std::vector<std::vector<int>> stackUncertaintyIdxVectors(
+    const int& nFlowLevels, 
+    const int& nOrigins, 
+    const int& nDestinations, 
+    const int& nSpotRates) {
+
+    std::vector<std::vector<int>> uncertaintyIdx;
+    uncertaintyIdx.reserve(nOrigins + nDestinations + 1);
+
+    const auto idx = utils::createIndexVector(nFlowLevels);
+    const auto kdx = utils::createIndexVector(nSpotRates);
+
+    utils::appendIndexVectors(uncertaintyIdx, idx, nOrigins + nDestinations);
+    uncertaintyIdx.push_back(kdx);
+
+    return uncertaintyIdx;
+}
+
+// Function to compute the environment
+//' @useDynLib TLPR
+//' @export
+// [[Rcpp::export]]
+std::vector<std::vector<int>> computeEnvironmentSTL(
+    const std::string jsonFile, 
+    const std::vector<double>& stateSupport,
+    const std::vector<double>& uncertaintySupport) {
+
+  std::ifstream file(jsonFile);
+  if (!file) {
+    Rcpp::stop("Unable to open file.");
+  }
+
+  nlohmann::json input;
+  file >> input;
+
+  const int nInventoryLevels = input["nSI"][0];
+  const int nFlowLevels = input["nQ"][0];
+  const int nSpotRates = input["nW"][0];
+  const int nOrigins = input["nI"][0];
+  const int nDestinations = input["nJ"][0];
+  const int nStrategicCarriers = input["nCS"][0];
+  const int nSpotCarriers = input["nCO"][0];
+  const int storageLimit = input["R"][0];
+  const std::vector<std::vector<int>> Cb = input["Cb"];
+  const std::vector<std::vector<int>> Co = input["Co"];
+  const int nSources = input["nL_"][0];
+  const int nLanes  = input["nL"][0];
+  const std::vector<std::vector<int>> bids = input["B"];
+  const std::vector<std::vector<int>> lanes = input["L"];
+  const std::vector<std::vector<double>> spotRates = input["CTo"];
+  const std::vector<std::string> winnerKeys = input["winnerKey"];
+
+  std::unordered_map<std::string, std::vector<int>> winners;
+  std::unordered_map<std::string, std::vector<double>> CTb;
+  std::unordered_map<std::string, int> carrierIdx;
+
+  winners = importListOfVectors<int>(input["winner"]);
+  CTb = importListOfVectors<double>(input["CTb_list"]);
+  carrierIdx = importList<int>(input["carrierIdx"]);
+
+  const int n = nSources + nSpotCarriers * nLanes;
+  const std::vector<int> nWarehouses = {nOrigins, nDestinations};
+  const std::vector<int> limits = utils::generateRandomIntegers(nOrigins + nDestinations, 10, 20);
+
+  std::vector<std::vector<int>> stateSupports = stackStateIdxVectors(nInventoryLevels, nOrigins, nDestinations);
+  std::vector<std::vector<int>> stateIdx = CartesianProductIntSTL(stateSupports);
+  const std::vector<double> extendedStateSupport = utils::mirrorAndNegateVector(stateSupport);
+
+  std::vector<std::vector<int>> uncertaintySupports = stackUncertaintyIdxVectors(nFlowLevels, nOrigins, nDestinations, nSpotRates);
+  std::vector<std::vector<int>> uncertaintyIdx = CartesianProductIntSTL(uncertaintySupports);
+
+  std::vector<double> rhs(nStrategicCarriers + nSpotCarriers + nDestinations + nOrigins + 1, 0);
+
+  // Create the Gurobi environment
+  GRBEnv env(true);
+  // Set the OutputFlag to 0 to turn off logging
+  env.set(GRB_IntParam_OutputFlag, 0);
+
+  env.start();
+
+  GRBVar* transport = nullptr;
+
+  // Optimize the model
+  try {
+
+    GRBModel model = GRBModel(env);
+    model.set(GRB_IntParam_OutputFlag, 0);
+    model.set(GRB_StringAttr_ModelName, "Drayage");
+
+    transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[0], nSpotCarriers, nLanes);
+
+    addCapacityConstraints(model, transport, winnerKeys,  winners, bids, carrierIdx, nSpotCarriers, nLanes, Cb[0], Co[0]);
+    addStorageLimitConstraints(model, transport, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits);
+    addVolumeConstraint(model, transport, n, 10);
+
+    // Use barrier to solve root relaxation
+    model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+    model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+
+    model.update();
+
+    // int numConstrs = model.get(GRB_IntAttr_NumConstrs);
+    GRBConstr* constraints = model.getConstrs(); // Get all constraints in the model
+    if (!constraints) {
+      throw std::runtime_error("Failed to get constraints from the model.");
+    }
+
+    // Compute environment
+    size_t t = 0;
+
+    for (size_t idx = 0; idx < nStrategicCarriers; ++idx) {
+      rhs[idx] = Cb[t][idx];
+    }
+
+    for (size_t idx = 0; idx < nSpotCarriers; ++idx) {
+      rhs[nStrategicCarriers + idx] = Co[t][idx];
+    }
+
+    rhs[nStrategicCarriers + nSpotCarriers + nDestinations + nOrigins] = 10;
+
+    for (const auto& sdx : stateIdx) {
+      // Uncertainty index
+      const auto& udx = uncertaintyIdx.at(0);
+      // Update right hand side of constraints
+
+      // Disable automatic model update
+      model.set(GRB_IntParam_UpdateMode, 0);
+
+      // Set new RHS values
+      for (size_t idx = 0; idx < nDestinations; ++idx) {
+        size_t p = nStrategicCarriers + nSpotCarriers + idx;
+        rhs[p] = storageLimit - std::max(extendedStateSupport.at(sdx.at(nOrigins + idx)), 0.0);
+        constraints[p].set(GRB_DoubleAttr_RHS, rhs[p]);
+      }
+
+      for (size_t idx = 0; idx < nOrigins; ++idx) {
+        size_t p = nStrategicCarriers + nSpotCarriers + nDestinations + idx;
+        rhs[p] = stateSupport.at(sdx.at(idx)) + uncertaintySupport.at(udx.at(idx));
+        constraints[p].set(GRB_DoubleAttr_RHS, rhs[p]);
+      }
+
+      // Re-enable automatic updates and manually update the model
+      model.set(GRB_IntParam_UpdateMode, 1);
+      model.update();
+      // printConstraints(model);
+    }
+  
+    // Solve
+    model.optimize();
+
+    int status = model.get(GRB_IntAttr_Status);
+
+    if (status == GRB_OPTIMAL) {
+      // std::cout << "Optimal solution found!" << std::endl;
+
+      // result["objval"] = model.get(GRB_DoubleAttr_ObjVal);
+
+      // Rcpp::NumericVector x(n);
+      // for (size_t i = 0; i < n; ++i) {
+      //   x[i] = transport[i].get(GRB_DoubleAttr_X);
+      // }
+      // result["x"] = x;
+
+    } else if (status == GRB_INFEASIBLE) {
+      std::cout << "Model is infeasible" << std::endl;
+    } else if (status == GRB_UNBOUNDED) {
+      std::cout << "Model is unbounded" << std::endl;
+    } else {
+      std::cout << "Optimization ended with status " << status << std::endl;
+    }
+
+    delete [] transport;
+
+    return std::vector<std::vector<int>>();
+
+  } catch (GRBException e) {
+    cout << "Error code = " << e.getErrorCode() << endl;
+    cout << e.getMessage() << endl;
+  } catch (...) {
+    cout << "Exception during optimization" << endl;
+  }
+
+  return std::vector<std::vector<int>>();
+}
+
 // Optimize the model and reurn objective and decision in R list
+//' @useDynLib TLPR
+//' @export
 // [[Rcpp::export]]
 Rcpp::List optimizeModelFromJSON(std::string jsonFile) {
 
@@ -254,6 +472,7 @@ Rcpp::List optimizeModelFromJSON(std::string jsonFile) {
   const int n = nL_ + nCO * nL;
   const std::vector<int> nWarehouses = {nOrigins, nDestinations};
   const std::vector<int> limits = utils::generateRandomIntegers(nOrigins + nDestinations, 20, 40);
+
   // Print limits 
   // std::cout << "Storage limits: ";
   // std::copy(limits.begin(), limits.end(), std::ostream_iterator<int>(std::cout, " "));
@@ -279,13 +498,14 @@ Rcpp::List optimizeModelFromJSON(std::string jsonFile) {
   try {
 
     GRBModel model = GRBModel(env);
+
     model.set(GRB_StringAttr_ModelName, "Drayage");
 
     transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
-    addVolumeConstraint(model, transport, n, 40);
     addCapacityConstraints(model, transport, winnerKeys,  winners, bids, carrierIdx, nCO, nL, Cb[0], Co[0]);
     addStorageLimitConstraints(model, transport, winnerKeys, winners, bids, lanes, nCO, nL, nWarehouses, limits);
+    addVolumeConstraint(model, transport, n, 10);
 
     // Use barrier to solve root relaxation
     model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
@@ -344,9 +564,9 @@ int main(int argc, char** argv) {
   // const int tau = input["tau"][0];
   const int nOrigins = input["nI"][0];
   const int nDestinations = input["nJ"][0];
-  // const int nL_ = input["nL_"][0];
-  // const int nCO = input["nCO"][0];
-  // const int nL  = input["nL"][0];
+  const int nL_ = input["nL_"][0];
+  const int nCO = input["nCO"][0];
+  const int nL  = input["nL"][0];
   const std::vector<std::vector<int>> bids = input["B"];
   const std::vector<std::vector<int>> lanes = input["L"];
   const std::vector<std::vector<int>> Cb = input["Cb"];
@@ -359,7 +579,7 @@ int main(int argc, char** argv) {
   // std::unordered_map<std::string, std::vector<int>> Cb;
   std::unordered_map<std::string, int> carrierIdx;
 
-  // const int n = nL_ + nCO * nL;
+  const int n = nL_ + nCO * nL;
   const std::vector<int> nWarehouses = {nOrigins, nDestinations};
   // Extract and iterate over the "winner" object
   // for (auto it = input["winner"].begin(); it != input["winner"].end(); ++it) {
@@ -387,53 +607,65 @@ int main(int argc, char** argv) {
   // printInstance(winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
   // Create the Gurobi environment
-  // GRBEnv env;
-  // GRBVar* transport = nullptr;
+  GRBEnv env;
+  GRBVar* transport = nullptr;
 
-  // try {
-  //   GRBModel model = GRBModel(env);
-  //   model.set(GRB_StringAttr_ModelName, "Drayage");
+  try {
+    GRBModel model = GRBModel(env);
+    model.set(GRB_StringAttr_ModelName, "Drayage");
 
-  //   transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
+    transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[0], nCO, nL);
 
-  //   addVolumeConstraint(model, transport, n, 40);
-  //   addCapacityConstraints(model, transport, winnerKeys, winners, bids, carrierIdx, nCO, nL, Cb[0], Co[0]);
-  //   addStorageLimitConstraints(model, transport, winnerKeys, winners, bids, lanes, nCO, nL, nWarehouses, limits);
+    addCapacityConstraints(model, transport, winnerKeys, winners, bids, carrierIdx, nCO, nL, Cb[0], Co[0]);
+    addStorageLimitConstraints(model, transport, winnerKeys, winners, bids, lanes, nCO, nL, nWarehouses, limits);
+    addVolumeConstraint(model, transport, n, 10);
 
-  //   // Use barrier to solve root relaxation
-  //   model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
-  //   model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+    // Use barrier to solve root relaxation
+    model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+    model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 
-  //   // Solve
-  //   model.optimize();
+    model.update();
 
-  //   int status = model.get(GRB_IntAttr_Status);
+    const int nInventoryLevels = input["nSI"][0];
+    std::vector<double> stateSupport(nInventoryLevels);
+    for (size_t i = 0; i < nInventoryLevels; ++i) {
+      stateSupport[i] = i;
+    }
+    const std::vector<double> uncertaintySupport = input["Q"]["vals"].get<std::vector<double>>();
 
-  //   if (status == GRB_OPTIMAL) {
-  //     std::cout << "Optimal solution found!" << std::endl;
+    // std::vector<std::vector<int>> stateSupports = computeEnvironmentSTL(argv[1], stateSupport, uncertaintySupport);
 
-  //     // Print transport names and values
-  //     printOptimalTransportVolumes(transport, n);
+    // // Solve
+    // model.optimize();
 
-  //     // Print model constraint names and right-hand sides
-  //     printConstraints(model);
+    // int status = model.get(GRB_IntAttr_Status);
 
-  //   } else if (status == GRB_INFEASIBLE) {
-  //     std::cout << "Model is infeasible" << std::endl;
-  //   } else if (status == GRB_UNBOUNDED) {
-  //     std::cout << "Model is unbounded" << std::endl;
-  //   } else {
-  //     std::cout << "Optimization ended with status " << status << std::endl;
-  //   }
+    // if (status == GRB_OPTIMAL) {
+    //   std::cout << "Optimal solution found!" << std::endl;
 
-  // } catch (GRBException e) {
-  //   cout << "Error code = " << e.getErrorCode() << endl;
-  //   cout << e.getMessage() << endl;
-  // } catch (...) {
-  //   cout << "Exception during optimization" << endl;
-  // }
+    //   // Print transport names and values
+    //   // printOptimalTransportVolumes(transport, n);
 
-  // delete[] transport;
+    //   // Print model constraint names and right-hand sides
+    //   printConstraints(model);
+
+    // } else if (status == GRB_INFEASIBLE) {
+    //   std::cout << "Model is infeasible" << std::endl;
+    // } else if (status == GRB_UNBOUNDED) {
+    //   std::cout << "Model is unbounded" << std::endl;
+    // } else {
+    //   std::cout << "Optimization ended with status " << status << std::endl;
+    // }
+
+  } catch (GRBException e) {
+    cout << "Error code = " << e.getErrorCode() << endl;
+    cout << e.getMessage() << endl;
+  } catch (...) {
+    cout << "Exception during optimization" << endl;
+  }
+
+
+  delete[] transport;
 
   return 0;
 }
