@@ -87,19 +87,19 @@ CartesianProductLB <- function(..., numThreads = 8) {
   .Call('_TLPR_CartesianProductRcppParallelxLB', vectors, numThreads)
 }
 
-#' Optimize Model from JSON file
-#'
-#' This function takes a JSON file and optimizes the model using a C++ function.
-#'
-#' @param json_file Path to the JSON file.
-#' @examples
-#' result <- optimizeModelFromJSON("path/to/json/file.json")
-#' print(result$objval)
-#' print(result$x)
-#' @useDynLib TLPR
-#' @importFrom Rcpp sourceCpp
-#' @export
-optimizeModelFromJSON <- function(jsonFile) {
-    # Call the C++ function to optimize the model
-    .Call('_TLPR_optimizeModelFromJSON', jsonFile)
-}
+# #' Optimize Model from JSON file
+# #'
+# #' This function takes a JSON file and optimizes the model using a C++ function.
+# #'
+# #' @param json_file Path to the JSON file.
+# #' @examples
+# #' result <- optimizeModelFromJSON("path/to/json/file.json")
+# #' print(result$objval)
+# #' print(result$x)
+# #' @useDynLib TLPR
+# #' @importFrom Rcpp sourceCpp
+# #' @export
+# optimizeModelFromJSON <- function(jsonFile) {
+#     # Call the C++ function to optimize the model
+#     .Call('_TLPR_optimizeModelFromJSON', jsonFile)
+# }
