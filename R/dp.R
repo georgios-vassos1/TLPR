@@ -52,14 +52,14 @@ consolidate_idx <- function(lists) {
 #' @param max_ Maximum value
 #' @param incr_ Increment value
 #' @export
-get_state_indices <- function(env, nI, nJ, max_, incr_) {
-  env$SI_ <- seq(0L, max_)
-  env$SJ_ <- seq(-max_, max_)
-  env$nSI <- length(SI_)
-  env$nSJ <- length(SJ_)
+get_state_indices <- function(env, nI, nJ, max_, incr_ = 1L) {
+  env$SI_ <- seq(0.0, max_, by = incr_)
+  env$SJ_ <- seq(-max_, max_, by = incr_)
+  env$nSI <- length(env$SI_)
+  env$nSJ <- length(env$SJ_)
 
-  env$nSdx <- (nSI^nI)*(nSJ^nJ)
-  env$Sdx  <- consolidate_idx(c(replicate(nI, seq(nSI), simplify = FALSE), replicate(nJ, seq(nSJ), simplify = FALSE)))
+  env$nSdx <- (env$nSI^nI)*(env$nSJ^nJ)
+  env$Sdx  <- consolidate_idx(c(replicate(nI, seq(env$nSI), simplify = FALSE), replicate(nJ, seq(env$nSJ), simplify = FALSE)))
 }
 
 #' Get scenario space
