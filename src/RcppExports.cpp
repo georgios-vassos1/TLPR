@@ -70,15 +70,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // computeEnvironmentSTL
-Rcpp::List computeEnvironmentSTL(const std::string jsonFile, const std::vector<double>& stateSupport, const std::vector<double>& uncertaintySupport);
-RcppExport SEXP _TLPR_computeEnvironmentSTL(SEXP jsonFileSEXP, SEXP stateSupportSEXP, SEXP uncertaintySupportSEXP) {
+std::vector<std::vector<int>> computeEnvironmentSTL(const std::string jsonFile, const std::vector<double>& stateSupport);
+RcppExport SEXP _TLPR_computeEnvironmentSTL(SEXP jsonFileSEXP, SEXP stateSupportSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string >::type jsonFile(jsonFileSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type uncertaintySupport(uncertaintySupportSEXP);
-    rcpp_result_gen = Rcpp::wrap(computeEnvironmentSTL(jsonFile, stateSupport, uncertaintySupport));
+    rcpp_result_gen = Rcpp::wrap(computeEnvironmentSTL(jsonFile, stateSupport));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -100,7 +99,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
-    {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 3},
+    {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 2},
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 1},
     {NULL, NULL, 0}
 };
