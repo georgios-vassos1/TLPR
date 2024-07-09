@@ -1,4 +1,8 @@
-#include "utils.hpp" // Include the header file to ensure consistency
+#ifdef UTILS_HPP 
+  #include "utils.hpp"
+#else
+  #include "../inst/include/utils.hpp"
+#endif
 
 namespace utils {
 
@@ -23,6 +27,22 @@ namespace utils {
     }
 
     return randomIntegers;
+  }
+
+  // Helper function to create a vector with elements from 0 to n-1
+  std::vector<int> createIndexVector(int n) {
+    std::vector<int> idx(n);
+    for (int i = 0; i < n; ++i) {
+      idx[i] = i;
+    }
+    return idx;
+  }
+
+  // Helper function to append copies of an index vector to a target vector
+  void appendIndexVectors(std::vector<std::vector<int>>& target, const std::vector<int>& idx, int count) {
+    for (int i = 0; i < count; ++i) {
+      target.push_back(idx);
+    }
   }
 
 } // namespace utils
