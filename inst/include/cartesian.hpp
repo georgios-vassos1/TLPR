@@ -4,8 +4,11 @@
 #include <Eigen/Dense>
 #include <vector>
 
-// Function using only STL containers
+// Function using only STL containers (type int)
 std::vector<std::vector<int>> CartesianProductIntSTL(const std::vector<std::vector<int>>& vectors);
+
+// Function using only STL containers (type double)
+std::vector<std::vector<double>> CartesianProductDoubleSTL(const std::vector<std::vector<double>>& vectors);
 
 // Function returning an Eigen matrix to avoid type conversion to Rcpp supported container
 Eigen::MatrixXi CartesianProductInt(const std::vector<std::vector<int>>& vectors);

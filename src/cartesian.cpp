@@ -38,6 +38,32 @@ std::vector<std::vector<int>> CartesianProductIntSTL(const std::vector<std::vect
   return results;
 }
 
+// Function using only STL containers
+std::vector<std::vector<double>> CartesianProductDoubleSTL(const std::vector<std::vector<double>>& vectors) {
+  std::vector<std::vector<double>> results;
+
+  // Compute the total number of combinations and reserve memory
+  size_t totalCombinations = 1;
+  for (const auto& vector : vectors) {
+    if (vector.empty()) return results;
+    totalCombinations *= vector.size();
+  }
+  results.reserve(totalCombinations);
+
+  // Main loop to generate all combinations
+  for (size_t count = 0; count < totalCombinations; ++count) {
+    std::vector<double> current;
+    size_t temp = count;
+    for (size_t i = 0; i < vectors.size(); ++i) {
+      current.push_back(vectors[i][temp % vectors[i].size()]);
+      temp /= vectors[i].size();
+    }
+    results.push_back(current);
+  }
+
+  return results;
+}
+
 // Function returning an Eigen matrix to avoid type conversion to Rcpp supported container
 Eigen::MatrixXi CartesianProductInt(const std::vector<std::vector<int>>& vectors) {
   if (vectors.empty()) return Eigen::MatrixXi(0, 0);
