@@ -1,7 +1,11 @@
 #include <iostream>
 #include <fstream>
 
-#include "reader.hpp"
+#ifdef READER_HPP 
+  #include "reader.hpp"
+#else
+  #include "../inst/include/reader.hpp"
+#endif
 
 using namespace std;
 

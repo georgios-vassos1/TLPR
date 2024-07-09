@@ -3,7 +3,11 @@
 #include <thread>
 #include <Rcpp.h>
 
-#include "cartesian.hpp"
+#ifdef CARTESIAN_HPP
+  #include "cartesian.hpp"
+#else
+  #include "../inst/include/cartesian.hpp"
+#endif
 
 using namespace std;
 using namespace Rcpp;
