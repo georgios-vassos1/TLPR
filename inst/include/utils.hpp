@@ -61,6 +61,14 @@ namespace utils {
       return extended;
   }
 
+  // Helper function to append copies of a vector to a target vector
+  template <typename T>
+  void appendVectors(std::vector<std::vector<T>>& target, const std::vector<T>& idx, int count) {
+    for (int i = 0; i < count; ++i) {
+      target.push_back(idx);
+    }
+  }
+
   // Helper function to create a vector with elements from 0 to n-1
   std::vector<int> createIndexVector(int n);
 
