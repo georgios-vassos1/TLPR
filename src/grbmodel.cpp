@@ -353,6 +353,10 @@ std::vector<std::vector<int>> computeEnvironmentSTL(
   // Start timing
   auto start = std::chrono::high_resolution_clock::now();
 
+  // Initialize the Eigen matrix with n rows and 4 columns
+  int nRows = stateIdx.size() * nActions * inflowIdx.size();
+  Eigen::MatrixXd transit(nRows, 5);
+
   // Set the number of threads
   omp_set_num_threads(numThreads);
 
@@ -447,26 +451,26 @@ std::vector<std::vector<int>> computeEnvironmentSTL(
             model.set(GRB_IntParam_UpdateMode, 1);
             model.update();
             // printConstraints(model);
+
+            // Solve
+            model.optimize();
+
+            int status = model.get(GRB_IntAttr_Status);
+
+            if (status == GRB_OPTIMAL) {
+              // std::cout << "Optimal solution found!" << std::endl;
+
+              // result["objval"] = model.get(GRB_DoubleAttr_ObjVal);
+            } else if (status == GRB_INFEASIBLE) {
+              // std::cout << "Model is infeasible" << std::endl;
+            } else if (status == GRB_UNBOUNDED) {
+              // std::cout << "Model is unbounded" << std::endl;
+            } else {
+              std::cout << "Optimization ended with status " << status << std::endl;
+            }
+
           }
         }
-
-      }
-    
-      // Solve
-      model.optimize();
-
-      int status = model.get(GRB_IntAttr_Status);
-
-      if (status == GRB_OPTIMAL) {
-        // std::cout << "Optimal solution found!" << std::endl;
-
-        // result["objval"] = model.get(GRB_DoubleAttr_ObjVal);
-      } else if (status == GRB_INFEASIBLE) {
-        std::cout << "Model is infeasible" << std::endl;
-      } else if (status == GRB_UNBOUNDED) {
-        std::cout << "Model is unbounded" << std::endl;
-      } else {
-        std::cout << "Optimization ended with status " << status << std::endl;
       }
 
       delete [] transport;

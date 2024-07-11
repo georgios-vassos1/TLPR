@@ -35,7 +35,7 @@ optimizeModelFromJSON <- function(jsonFile) {
 
 #' @useDynLib TLPR
 #' @export
-rmvnorm <- function(n, p, mean, covar, nThreads = 8L) {
-    .Call('_TLPR_rmvnorm', PACKAGE = 'TLPR', n, p, mean, covar, nThreads)
+rmvnorm <- function(n, mean, covar, nThreads = 8L) {
+    .Call('_TLPR_rmvnorm', PACKAGE = 'TLPR', n, mean, covar, nThreads)
 }
 

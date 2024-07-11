@@ -24,12 +24,6 @@ microbenchmark::microbenchmark(
 )
 
 ## Cartesian product benchmarks
-data.table::CJ(1:50, 1:50, 1:50, 1:50)
-TLPR::CartesianProduct(1:50, 1:50, 1:50, 1:50)
-TLPR::CartesianProductX(1:50, 1:50, 1:50, 1:50, numThreads = 8L)
-TLPR::CartesianProductLB(1:50, 1:50, 1:50, 1:50, numThreads = 8L)
-expand.grid(1:50, 1:50, 1:50, 1:50)
-
 microbenchmark::microbenchmark(
   data.table::CJ(1:50, 1:50, 1:50, 1:50),
   TLPR::CartesianProductX(1:50, 1:50, 1:50, 1:50),
