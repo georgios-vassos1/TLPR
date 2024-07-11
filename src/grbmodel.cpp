@@ -4,6 +4,7 @@
 #include <thread>
 #include <Rcpp.h>
 #include <chrono>
+#include <omp.h>
 
 #ifdef READER_HPP 
   #include "reader.hpp"
@@ -277,9 +278,10 @@ std::vector<std::vector<int>> stackUncertaintyIdxVectors(
 // [[Rcpp::export]]
 std::vector<std::vector<int>> computeEnvironmentSTL(
     const std::string jsonFile, 
-    const std::vector<double>& stateSupport) {
-    // const std::vector<double>& uncertaintySupport) {
+    const std::vector<double>& stateSupport,
+    int numThreads = 8) {
 
+  // Read the JSON file
   std::ifstream file(jsonFile);
   if (!file) {
     Rcpp::stop("Unable to open file.");
@@ -288,6 +290,7 @@ std::vector<std::vector<int>> computeEnvironmentSTL(
   nlohmann::json input;
   file >> input;
 
+  // Extract the data
   const int nInventoryLevels   = input["nSI"][0];
   const int nFlowLevels        = input["nQ"][0];
   // const int nSpotRates         = input["nW"][0];
@@ -298,37 +301,40 @@ std::vector<std::vector<int>> computeEnvironmentSTL(
   const int storageLimit       = input["R"][0];
   const int nSources           = input["nL_"][0];
   const int nLanes             = input["nL"][0];
-  const std::vector<std::vector<int>>    Cb        = input["Cb"];
-  const std::vector<std::vector<int>>    Co        = input["Co"];
-  const std::vector<std::vector<int>>    bids      = input["B"];
-  const std::vector<std::vector<int>>    lanes     = input["L"];
-  const std::vector<std::vector<double>> spotRates = input["CTo"];
-  const std::vector<std::string> winnerKeys        = input["winnerKey"];
+  const int nActions           = input["max.S"][0];
+
+  const std::vector<std::vector<int>>& Cb    = input["Cb"];
+  const std::vector<std::vector<int>>& Co    = input["Co"];
+  const std::vector<std::vector<int>>& bids  = input["B"];
+  const std::vector<std::vector<int>>& lanes = input["L"];
+  const std::vector<std::string>& winnerKeys = input["winnerKey"];
+  const std::vector<std::vector<double>>& spotRates = input["CTo"];
+  const std::vector<double>& inflowSupport = input["Q"]["vals"].get<std::vector<double>>();
 
   std::unordered_map<std::string, std::vector<int>>    winners;
   std::unordered_map<std::string, std::vector<double>> CTb;
-
   std::unordered_map<std::string, int> carrierIdx;
 
   winners    = importListOfVectors<int>(input["winner"]);
   CTb        = importListOfVectors<double>(input["CTb_list"]);
   carrierIdx = importList<int>(input["carrierIdx"]);
 
+  // Auxiliary variables
   const int n = nSources + nSpotCarriers * nLanes;
 
   const std::vector<int> nWarehouses = {nOrigins, nDestinations};
   const std::vector<int> limits      = utils::generateRandomIntegers(nOrigins + nDestinations, 10, 20);
 
+  // Generate state support data (only positive states)
   std::vector<std::vector<int>> stateSupports = stackStateIdxVectors(nInventoryLevels, nOrigins, nDestinations);
-  std::vector<std::vector<int>> stateIdx      = CartesianProductIntSTL(stateSupports);
-
+  // Generate extended state support data (positive and negative states)
   const std::vector<double> extendedStateSupport = utils::mirrorAndNegateVector(stateSupport);
+  // Generate state index data
+  std::vector<std::vector<int>> stateIdx = CartesianProductIntSTL(stateSupports);
 
-  const std::vector<double>& inflowSupport = input["Q"]["vals"].get<std::vector<double>>();
-
+  // Generate inflow support data
   std::vector<std::vector<double>> inflowSupportStack;
   utils::appendVectors(inflowSupportStack, inflowSupport, nOrigins);
-
   std::vector<std::vector<double>> inflowSupports = CartesianProductDoubleSTL(inflowSupportStack);
   // // Print inflow support
   // for (const auto& inflow : inflowSupports) {
@@ -336,6 +342,7 @@ std::vector<std::vector<int>> computeEnvironmentSTL(
   //   std::cout << std::endl;
   // }
 
+  // Generate inflow index data
   std::vector<int> inflowIdxSingle = utils::createIndexVector(nFlowLevels);
 
   std::vector<std::vector<int>> inflowIdxStack;
@@ -343,142 +350,141 @@ std::vector<std::vector<int>> computeEnvironmentSTL(
 
   std::vector<std::vector<int>> inflowIdx = CartesianProductIntSTL(inflowIdxStack);
 
-  std::vector<double> rhs(nStrategicCarriers + nSpotCarriers + nDestinations + nOrigins + 1, 0);
+  // Start timing
+  auto start = std::chrono::high_resolution_clock::now();
 
-  // Create the Gurobi environment
-  GRBEnv env(true);
-  // Set the OutputFlag to 0 to turn off logging
-  env.set(GRB_IntParam_OutputFlag, 0);
+  // Set the number of threads
+  omp_set_num_threads(numThreads);
 
-  env.start();
+  // Enclose the thread-specific code within a block
+  #pragma omp parallel
+  {
+ 
+    // Create the Gurobi environment
+    GRBEnv env(true);
+    // Set the OutputFlag to 0 to turn off logging
+    env.set(GRB_IntParam_OutputFlag, 0);
+    env.start();
+    GRBVar* transport = nullptr;
 
-  GRBVar* transport = nullptr;
+    try {
 
-  // Optimize the model
-  try {
+      GRBModel model = GRBModel(env);
+      model.set(GRB_IntParam_OutputFlag, 0);
+      model.set(GRB_StringAttr_ModelName, "Drayage");
 
-    GRBModel model = GRBModel(env);
-    model.set(GRB_IntParam_OutputFlag, 0);
-    model.set(GRB_StringAttr_ModelName, "Drayage");
+      // Initialize vector for the right hand side (RHS) of constraints
+      std::vector<double> rhs(nStrategicCarriers + nSpotCarriers + nDestinations + nOrigins + 1, 0);
 
-    transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[0], nSpotCarriers, nLanes);
+      // Instantiate dummy Gurobi model once to get the decision variables and contraints in place
+      transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[0], nSpotCarriers, nLanes);
 
-    addCapacityConstraints(model, transport, winnerKeys,  winners, bids, carrierIdx, nSpotCarriers, nLanes, Cb[0], Co[0]);
-    addStorageLimitConstraints(model, transport, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits);
-    addVolumeConstraint(model, transport, n, 10);
+      // Do not change the order of calling the constraints
+      addCapacityConstraints(model, transport, winnerKeys,  winners, bids, carrierIdx, nSpotCarriers, nLanes, Cb[0], Co[0]);
+      addStorageLimitConstraints(model, transport, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits);
+      addVolumeConstraint(model, transport, n, 10);
 
-    // Use barrier to solve root relaxation
-    model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
-    model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+      // Use barrier to solve root relaxation
+      model.set(GRB_IntParam_Method, GRB_METHOD_BARRIER);
+      model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 
-    model.update();
+      model.update();
 
-    // int numConstrs = model.get(GRB_IntAttr_NumConstrs);
-    GRBConstr* constraints = model.getConstrs(); // Get all constraints in the model
-    if (!constraints) {
-      throw std::runtime_error("Failed to get constraints from the model.");
-    }
-
-    // Compute environment
-    size_t t = 0;
-
-    for (size_t idx = 0; idx < nStrategicCarriers; ++idx) {
-      rhs[idx] = Cb[t][idx];
-    }
-
-    for (size_t idx = 0; idx < nSpotCarriers; ++idx) {
-      rhs[nStrategicCarriers + idx] = Co[t][idx];
-    }
-
-    rhs[nStrategicCarriers + nSpotCarriers + nDestinations + nOrigins] = 10;
-
-    // Start timing
-    auto start = std::chrono::high_resolution_clock::now();
-
-    for (const auto& sdx : stateIdx) {
-      // Update right hand side of constraints
-      // Disable automatic model update
-      model.set(GRB_IntParam_UpdateMode, 0);
-
-      // Set new RHS values
-      for (size_t idx = 0; idx < nDestinations; ++idx) {
-        size_t p = nStrategicCarriers + nSpotCarriers + idx;
-
-        rhs[p] = storageLimit - std::max(extendedStateSupport.at(sdx.at(nOrigins + idx)), 0.0);
-        constraints[p].set(GRB_DoubleAttr_RHS, rhs[p]);
+      // int numConstrs = model.get(GRB_IntAttr_NumConstrs);
+      GRBConstr* constraints = model.getConstrs(); // Get all constraints in the model
+      if (!constraints) {
+        throw std::runtime_error("Failed to get constraints from the model.");
       }
 
-      // Uncertainty index
-      for (const auto& udx : inflowIdx) {
+      // Compute environment
+      size_t t = 0;
 
-        for (size_t idx = 0; idx < nOrigins; ++idx) {
-          size_t p = nStrategicCarriers + nSpotCarriers + nDestinations + idx;
+      for (size_t idx = 0; idx < nStrategicCarriers; ++idx) {
+        rhs[idx] = Cb[t][idx];
+      }
 
-          rhs[p] = stateSupport.at(sdx.at(idx)) + inflowSupport.at(udx.at(idx));
+      for (size_t idx = 0; idx < nSpotCarriers; ++idx) {
+        rhs[nStrategicCarriers + idx] = Co[t][idx];
+      }
+
+      rhs[nStrategicCarriers + nSpotCarriers + nDestinations + nOrigins] = 10;
+
+      // Compute the environment
+      #pragma omp for
+      for (size_t i = 0; i < stateIdx.size(); ++i) {
+        const auto& sdx = stateIdx[i];
+
+        // Update right hand side of constraints
+
+        // Disable automatic model update
+        model.set(GRB_IntParam_UpdateMode, 0);
+
+        // Set new RHS values
+        for (size_t idx = 0; idx < nDestinations; ++idx) {
+          size_t p = nStrategicCarriers + nSpotCarriers + idx;
+
+          rhs[p] = storageLimit - std::max(extendedStateSupport.at(sdx.at(nOrigins + idx)), 0.0);
           constraints[p].set(GRB_DoubleAttr_RHS, rhs[p]);
         }
 
-        // Re-enable automatic updates and manually update the model
-        model.set(GRB_IntParam_UpdateMode, 1);
-        model.update();
-        // printConstraints(model);
+        for (size_t adx = 0; adx < nActions; ++adx) {
+          size_t p = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
+
+          constraints[p].set(GRB_DoubleAttr_RHS, adx);
+
+          // Uncertainty index
+          for (size_t j = 0; j < inflowIdx.size(); ++j) {
+            const auto& udx = inflowIdx[j];
+
+            for (size_t idx = 0; idx < nOrigins; ++idx) {
+              size_t p = nStrategicCarriers + nSpotCarriers + nDestinations + idx;
+
+              rhs[p] = stateSupport.at(sdx.at(idx)) + inflowSupport.at(udx.at(idx));
+              constraints[p].set(GRB_DoubleAttr_RHS, rhs[p]);
+            }
+
+            // Re-enable automatic updates and manually update the model
+            model.set(GRB_IntParam_UpdateMode, 1);
+            model.update();
+            // printConstraints(model);
+          }
+        }
+
+      }
+    
+      // Solve
+      model.optimize();
+
+      int status = model.get(GRB_IntAttr_Status);
+
+      if (status == GRB_OPTIMAL) {
+        // std::cout << "Optimal solution found!" << std::endl;
+
+        // result["objval"] = model.get(GRB_DoubleAttr_ObjVal);
+      } else if (status == GRB_INFEASIBLE) {
+        std::cout << "Model is infeasible" << std::endl;
+      } else if (status == GRB_UNBOUNDED) {
+        std::cout << "Model is unbounded" << std::endl;
+      } else {
+        std::cout << "Optimization ended with status " << status << std::endl;
       }
 
-      // const auto& udx = uncertaintyIdx.at(0);
-      // // Update right hand side of constraints
+      delete [] transport;
 
-      // for (size_t idx = 0; idx < nOrigins; ++idx) {
-      //   size_t p = nStrategicCarriers + nSpotCarriers + nDestinations + idx;
-      //   rhs[p] = stateSupport.at(sdx.at(idx)) + uncertaintySupport.at(udx.at(idx));
-      //   constraints[p].set(GRB_DoubleAttr_RHS, rhs[p]);
-      // }
-
-      // // Re-enable automatic updates and manually update the model
-      // model.set(GRB_IntParam_UpdateMode, 1);
-      // model.update();
-      // // printConstraints(model);
+    } catch (GRBException e) {
+      cout << "Error code = " << e.getErrorCode() << endl;
+      cout << e.getMessage() << endl;
+    } catch (...) {
+      cout << "Exception during optimization" << endl;
     }
 
-    // End timing
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start;
-
-    std::cout << "Time taken: " << elapsed.count() << " seconds" << std::endl;
-  
-    // Solve
-    model.optimize();
-
-    int status = model.get(GRB_IntAttr_Status);
-
-    if (status == GRB_OPTIMAL) {
-      // std::cout << "Optimal solution found!" << std::endl;
-
-      // result["objval"] = model.get(GRB_DoubleAttr_ObjVal);
-
-      // Rcpp::NumericVector x(n);
-      // for (size_t i = 0; i < n; ++i) {
-      //   x[i] = transport[i].get(GRB_DoubleAttr_X);
-      // }
-      // result["x"] = x;
-
-    } else if (status == GRB_INFEASIBLE) {
-      std::cout << "Model is infeasible" << std::endl;
-    } else if (status == GRB_UNBOUNDED) {
-      std::cout << "Model is unbounded" << std::endl;
-    } else {
-      std::cout << "Optimization ended with status " << status << std::endl;
-    }
-
-    delete [] transport;
-
-    return std::vector<std::vector<int>>();
-
-  } catch (GRBException e) {
-    cout << "Error code = " << e.getErrorCode() << endl;
-    cout << e.getMessage() << endl;
-  } catch (...) {
-    cout << "Exception during optimization" << endl;
   }
+
+  // End timing
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end - start;
+
+  std::cout << "Time taken: " << elapsed.count() << " seconds" << std::endl;
 
   return std::vector<std::vector<int>>();
 }

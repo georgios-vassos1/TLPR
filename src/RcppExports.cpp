@@ -70,14 +70,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // computeEnvironmentSTL
-std::vector<std::vector<int>> computeEnvironmentSTL(const std::string jsonFile, const std::vector<double>& stateSupport);
-RcppExport SEXP _TLPR_computeEnvironmentSTL(SEXP jsonFileSEXP, SEXP stateSupportSEXP) {
+std::vector<std::vector<int>> computeEnvironmentSTL(const std::string jsonFile, const std::vector<double>& stateSupport, int numThreads);
+RcppExport SEXP _TLPR_computeEnvironmentSTL(SEXP jsonFileSEXP, SEXP stateSupportSEXP, SEXP numThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string >::type jsonFile(jsonFileSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
-    rcpp_result_gen = Rcpp::wrap(computeEnvironmentSTL(jsonFile, stateSupport));
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeEnvironmentSTL(jsonFile, stateSupport, numThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -92,6 +93,56 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fillMatrixWithSamples
+Eigen::MatrixXd fillMatrixWithSamples(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar);
+RcppExport SEXP _TLPR_fillMatrixWithSamples(SEXP nSdxSEXP, SEXP nAdxSEXP, SEXP nUdxSEXP, SEXP pSEXP, SEXP meanSEXP, SEXP covarSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type nSdx(nSdxSEXP);
+    Rcpp::traits::input_parameter< int >::type nAdx(nAdxSEXP);
+    Rcpp::traits::input_parameter< int >::type nUdx(nUdxSEXP);
+    Rcpp::traits::input_parameter< int >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type mean(meanSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type covar(covarSEXP);
+    rcpp_result_gen = Rcpp::wrap(fillMatrixWithSamples(nSdx, nAdx, nUdx, p, mean, covar));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fillMatrixWithSamplesOMP
+Eigen::MatrixXd fillMatrixWithSamplesOMP(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads);
+RcppExport SEXP _TLPR_fillMatrixWithSamplesOMP(SEXP nSdxSEXP, SEXP nAdxSEXP, SEXP nUdxSEXP, SEXP pSEXP, SEXP meanSEXP, SEXP covarSEXP, SEXP nThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type nSdx(nSdxSEXP);
+    Rcpp::traits::input_parameter< int >::type nAdx(nAdxSEXP);
+    Rcpp::traits::input_parameter< int >::type nUdx(nUdxSEXP);
+    Rcpp::traits::input_parameter< int >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type mean(meanSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type covar(covarSEXP);
+    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(fillMatrixWithSamplesOMP(nSdx, nAdx, nUdx, p, mean, covar, nThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fillMatrixWithSamplesOMP3
+Eigen::MatrixXd fillMatrixWithSamplesOMP3(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads);
+RcppExport SEXP _TLPR_fillMatrixWithSamplesOMP3(SEXP nSdxSEXP, SEXP nAdxSEXP, SEXP nUdxSEXP, SEXP pSEXP, SEXP meanSEXP, SEXP covarSEXP, SEXP nThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type nSdx(nSdxSEXP);
+    Rcpp::traits::input_parameter< int >::type nAdx(nAdxSEXP);
+    Rcpp::traits::input_parameter< int >::type nUdx(nUdxSEXP);
+    Rcpp::traits::input_parameter< int >::type p(pSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type mean(meanSEXP);
+    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type covar(covarSEXP);
+    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(fillMatrixWithSamplesOMP3(nSdx, nAdx, nUdx, p, mean, covar, nThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_r_to_eigen", (DL_FUNC) &_TLPR_r_to_eigen, 1},
@@ -99,8 +150,11 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
-    {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 2},
+    {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 3},
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 1},
+    {"_TLPR_fillMatrixWithSamples", (DL_FUNC) &_TLPR_fillMatrixWithSamples, 6},
+    {"_TLPR_fillMatrixWithSamplesOMP", (DL_FUNC) &_TLPR_fillMatrixWithSamplesOMP, 7},
+    {"_TLPR_fillMatrixWithSamplesOMP3", (DL_FUNC) &_TLPR_fillMatrixWithSamplesOMP3, 7},
     {NULL, NULL, 0}
 };
 

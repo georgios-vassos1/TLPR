@@ -23,13 +23,31 @@ CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
 
 #' @useDynLib TLPR
 #' @export
-computeEnvironmentSTL <- function(jsonFile, stateSupport) {
-    .Call('_TLPR_computeEnvironmentSTL', PACKAGE = 'TLPR', jsonFile, stateSupport)
+computeEnvironmentSTL <- function(jsonFile, stateSupport, numThreads = 8L) {
+    .Call('_TLPR_computeEnvironmentSTL', PACKAGE = 'TLPR', jsonFile, stateSupport, numThreads)
 }
 
 #' @useDynLib TLPR
 #' @export
 optimizeModelFromJSON <- function(jsonFile) {
     .Call('_TLPR_optimizeModelFromJSON', PACKAGE = 'TLPR', jsonFile)
+}
+
+#' @useDynLib TLPR
+#' @export
+fillMatrixWithSamples <- function(nSdx, nAdx, nUdx, p, mean, covar) {
+    .Call('_TLPR_fillMatrixWithSamples', PACKAGE = 'TLPR', nSdx, nAdx, nUdx, p, mean, covar)
+}
+
+#' @useDynLib TLPR
+#' @export
+fillMatrixWithSamplesOMP <- function(nSdx, nAdx, nUdx, p, mean, covar, nThreads) {
+    .Call('_TLPR_fillMatrixWithSamplesOMP', PACKAGE = 'TLPR', nSdx, nAdx, nUdx, p, mean, covar, nThreads)
+}
+
+#' @useDynLib TLPR
+#' @export
+fillMatrixWithSamplesOMP3 <- function(nSdx, nAdx, nUdx, p, mean, covar, nThreads) {
+    .Call('_TLPR_fillMatrixWithSamplesOMP3', PACKAGE = 'TLPR', nSdx, nAdx, nUdx, p, mean, covar, nThreads)
 }
 
