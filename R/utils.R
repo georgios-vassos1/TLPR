@@ -86,3 +86,27 @@ plot2x2instance <- function(env, graph.dt, S.I, S.J, Q, D) {
   # Reset plotting area to single plot
   par(mfrow = c(1L, 1L))
 }
+
+#' Generate a Positive Definite Matrix
+#'
+#' This function generates a random symmetric positive definite matrix of a given size.
+#'
+#' @param p An integer specifying the dimension of the matrix (number of rows and columns).
+#' @return A p x p symmetric positive definite matrix.
+#' @examples
+#' # Generate a 3x3 positive definite matrix
+#' matrix <- generatePositiveDefiniteMatrix(3)
+#' print(matrix)
+#' @export
+generatePositiveDefiniteMatrix <- function(p) {
+  # Generate a random p x p matrix
+  A <- matrix(rnorm(p * p), nrow = p, ncol = p)
+  
+  # Create a symmetric positive definite matrix by multiplying A by its transpose
+  symmetricMatrix <- t(A) %*% A
+  
+  # Adding a small value to the diagonal to ensure positive definiteness
+  symmetricMatrix <- symmetricMatrix + diag(p) * 1e-3
+  
+  return(symmetricMatrix)
+}

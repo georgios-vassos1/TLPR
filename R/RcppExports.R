@@ -35,19 +35,7 @@ optimizeModelFromJSON <- function(jsonFile) {
 
 #' @useDynLib TLPR
 #' @export
-fillMatrixWithSamples <- function(nSdx, nAdx, nUdx, p, mean, covar) {
-    .Call('_TLPR_fillMatrixWithSamples', PACKAGE = 'TLPR', nSdx, nAdx, nUdx, p, mean, covar)
-}
-
-#' @useDynLib TLPR
-#' @export
-fillMatrixWithSamplesOMP <- function(nSdx, nAdx, nUdx, p, mean, covar, nThreads) {
-    .Call('_TLPR_fillMatrixWithSamplesOMP', PACKAGE = 'TLPR', nSdx, nAdx, nUdx, p, mean, covar, nThreads)
-}
-
-#' @useDynLib TLPR
-#' @export
-fillMatrixWithSamplesOMP3 <- function(nSdx, nAdx, nUdx, p, mean, covar, nThreads) {
-    .Call('_TLPR_fillMatrixWithSamplesOMP3', PACKAGE = 'TLPR', nSdx, nAdx, nUdx, p, mean, covar, nThreads)
+rmvnorm <- function(n, p, mean, covar, nThreads = 8L) {
+    .Call('_TLPR_rmvnorm', PACKAGE = 'TLPR', n, p, mean, covar, nThreads)
 }
 

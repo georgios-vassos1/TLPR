@@ -26,6 +26,42 @@ Eigen::VectorXd multivariateNormalSample(const Eigen::VectorXd& mean, const Eige
 //' @useDynLib TLPR
 //' @export
 // [[Rcpp::export]]
+Eigen::MatrixXd rmvnorm(int n, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads = 8) {
+
+  if (p != mean.size()) {
+    throw std::invalid_argument("The parameter p must be equal to the size of the mean vector.");
+  }
+
+  Eigen::MatrixXd outputMatrix(n, p);
+
+  // Set the number of threads
+  omp_set_num_threads(nThreads);
+
+  // Pre-generate random number generators for each thread
+  std::vector<std::mt19937> generators(nThreads);
+  for (int t = 0; t < nThreads; ++t) {
+    std::random_device rd;
+    generators[t] = std::mt19937(rd());
+  }
+
+  // Parallelize the outer loops
+  #pragma omp parallel for
+  for (int idx = 0; idx < n; ++idx) {
+    int thread_id = omp_get_thread_num();
+    std::mt19937& gen = generators[thread_id];
+
+    Eigen::VectorXd sample = multivariateNormalSample(mean, covar, gen);
+
+    // Fill the output matrix
+    outputMatrix.row(idx) = sample.transpose();
+  }
+
+  return outputMatrix;
+}
+
+// Illustration Only 
+//
+// Function to fill the matrix
 Eigen::MatrixXd fillMatrixWithSamples(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar) {
 
   if (p != mean.size()) {
@@ -56,49 +92,7 @@ Eigen::MatrixXd fillMatrixWithSamples(int nSdx, int nAdx, int nUdx, int p, const
   return outputMatrix;
 }
 
-
 // Function to fill the matrix
-//' @useDynLib TLPR
-//' @export
-// [[Rcpp::export]]
-Eigen::MatrixXd fillMatrixWithSamplesOMP(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads) {
-
-  if (p != mean.size()) {
-    throw std::invalid_argument("The parameter p must be equal to the size of the mean vector.");
-  }
-
-  int n = nSdx * nAdx * nUdx;
-  Eigen::MatrixXd outputMatrix(n, p);
-
-  // Set the number of threads
-  omp_set_num_threads(nThreads);
-
-  // Pre-generate random number generators for each thread
-  std::vector<std::mt19937> generators(nThreads);
-  for (int t = 0; t < nThreads; ++t) {
-    std::random_device rd;
-    generators[t] = std::mt19937(rd());
-  }
-
-  // Parallelize the outer loops
-  #pragma omp parallel for
-  for (int idx = 0; idx < n; ++idx) {
-    int thread_id = omp_get_thread_num();
-    std::mt19937& gen = generators[thread_id];
-
-    Eigen::VectorXd sample = multivariateNormalSample(mean, covar, gen);
-
-    // Fill the output matrix
-    outputMatrix.row(idx) = sample.transpose();
-  }
-
-  return outputMatrix;
-}
-
-// Function to fill the matrix
-//' @useDynLib TLPR
-//' @export
-// [[Rcpp::export]]
 Eigen::MatrixXd fillMatrixWithSamplesOMP3(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads) {
 
   if (p != mean.size()) {

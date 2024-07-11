@@ -93,53 +93,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// fillMatrixWithSamples
-Eigen::MatrixXd fillMatrixWithSamples(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar);
-RcppExport SEXP _TLPR_fillMatrixWithSamples(SEXP nSdxSEXP, SEXP nAdxSEXP, SEXP nUdxSEXP, SEXP pSEXP, SEXP meanSEXP, SEXP covarSEXP) {
+// rmvnorm
+Eigen::MatrixXd rmvnorm(int n, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads);
+RcppExport SEXP _TLPR_rmvnorm(SEXP nSEXP, SEXP pSEXP, SEXP meanSEXP, SEXP covarSEXP, SEXP nThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int >::type nSdx(nSdxSEXP);
-    Rcpp::traits::input_parameter< int >::type nAdx(nAdxSEXP);
-    Rcpp::traits::input_parameter< int >::type nUdx(nUdxSEXP);
-    Rcpp::traits::input_parameter< int >::type p(pSEXP);
-    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type mean(meanSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type covar(covarSEXP);
-    rcpp_result_gen = Rcpp::wrap(fillMatrixWithSamples(nSdx, nAdx, nUdx, p, mean, covar));
-    return rcpp_result_gen;
-END_RCPP
-}
-// fillMatrixWithSamplesOMP
-Eigen::MatrixXd fillMatrixWithSamplesOMP(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads);
-RcppExport SEXP _TLPR_fillMatrixWithSamplesOMP(SEXP nSdxSEXP, SEXP nAdxSEXP, SEXP nUdxSEXP, SEXP pSEXP, SEXP meanSEXP, SEXP covarSEXP, SEXP nThreadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int >::type nSdx(nSdxSEXP);
-    Rcpp::traits::input_parameter< int >::type nAdx(nAdxSEXP);
-    Rcpp::traits::input_parameter< int >::type nUdx(nUdxSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
     Rcpp::traits::input_parameter< int >::type p(pSEXP);
     Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type mean(meanSEXP);
     Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type covar(covarSEXP);
     Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(fillMatrixWithSamplesOMP(nSdx, nAdx, nUdx, p, mean, covar, nThreads));
-    return rcpp_result_gen;
-END_RCPP
-}
-// fillMatrixWithSamplesOMP3
-Eigen::MatrixXd fillMatrixWithSamplesOMP3(int nSdx, int nAdx, int nUdx, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads);
-RcppExport SEXP _TLPR_fillMatrixWithSamplesOMP3(SEXP nSdxSEXP, SEXP nAdxSEXP, SEXP nUdxSEXP, SEXP pSEXP, SEXP meanSEXP, SEXP covarSEXP, SEXP nThreadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int >::type nSdx(nSdxSEXP);
-    Rcpp::traits::input_parameter< int >::type nAdx(nAdxSEXP);
-    Rcpp::traits::input_parameter< int >::type nUdx(nUdxSEXP);
-    Rcpp::traits::input_parameter< int >::type p(pSEXP);
-    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type mean(meanSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type covar(covarSEXP);
-    Rcpp::traits::input_parameter< int >::type nThreads(nThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(fillMatrixWithSamplesOMP3(nSdx, nAdx, nUdx, p, mean, covar, nThreads));
+    rcpp_result_gen = Rcpp::wrap(rmvnorm(n, p, mean, covar, nThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -152,9 +117,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
     {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 3},
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 1},
-    {"_TLPR_fillMatrixWithSamples", (DL_FUNC) &_TLPR_fillMatrixWithSamples, 6},
-    {"_TLPR_fillMatrixWithSamplesOMP", (DL_FUNC) &_TLPR_fillMatrixWithSamplesOMP, 7},
-    {"_TLPR_fillMatrixWithSamplesOMP3", (DL_FUNC) &_TLPR_fillMatrixWithSamplesOMP3, 7},
+    {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 5},
     {NULL, NULL, 0}
 };
 
