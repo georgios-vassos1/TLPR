@@ -26,11 +26,9 @@ Eigen::VectorXd multivariateNormalSample(const Eigen::VectorXd& mean, const Eige
 //' @useDynLib TLPR
 //' @export
 // [[Rcpp::export]]
-Eigen::MatrixXd rmvnorm(int n, int p, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads = 8) {
+Eigen::MatrixXd rmvnorm(int n, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads = 8) {
 
-  if (p != mean.size()) {
-    throw std::invalid_argument("The parameter p must be equal to the size of the mean vector.");
-  }
+  int p = mean.size();
 
   Eigen::MatrixXd outputMatrix(n, p);
 
