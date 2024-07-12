@@ -1,17 +1,31 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <iostream>
-#include <random>
+#include <Rcpp.h>
 #include <vector>
 #include <tuple>
+#include <map>
 #include <algorithm>
 #include <numeric>
 #include <functional>
+#include <random>
+#include <iostream>
 #include <type_traits>
 
 // Namespace for utility functions
 namespace utils {
+
+  // Helper function to create a vector with elements from 0 to n-1
+  std::vector<int> createIndexVector(int n);
+
+  // Helper function to append copies of an index vector to a target vector
+  void appendIndexVectors(std::vector<std::vector<int>>& target, const std::vector<int>& idx, int count);
+
+  // Function to flatten a vector of vectors of equal lengths
+  std::vector<double> flatten(const std::vector<std::vector<double>>& vecOfVecs);
+
+  // Function to generate random integers
+  std::vector<int> generateRandomIntegers(int n, int lowerBound, int upperBound);
 
   // Helper function to print tuples
   template<class... Args>
@@ -69,17 +83,52 @@ namespace utils {
     }
   }
 
-  // Helper function to create a vector with elements from 0 to n-1
-  std::vector<int> createIndexVector(int n);
+  // Function to convert R list of vectors to std::map<KeyType, std::vector<ValueType>>
+  template <typename KeyType, typename ValueType>
+  std::map<KeyType, std::vector<ValueType>> convertListToMap(SEXP inputList) {
+    std::map<KeyType, std::vector<ValueType>> result;
 
-  // Helper function to append copies of an index vector to a target vector
-  void appendIndexVectors(std::vector<std::vector<int>>& target, const std::vector<int>& idx, int count);
+    // Ensure the input is a list
+    if (!Rf_isNewList(inputList)) {
+      Rcpp::stop("Input must be a list");
+    }
 
-  // Function to flatten a vector of vectors of equal lengths
-  std::vector<double> flatten(const std::vector<std::vector<double>>& vecOfVecs);
+    Rcpp::List list(inputList);
+    bool useIndices = Rf_isNull(list.names());
+    Rcpp::CharacterVector names;
+    if (!useIndices) {
+      names = list.names();
+    }
 
-  // Function to generate random integers
-  std::vector<int> generateRandomIntegers(int n, int lowerBound, int upperBound);
+    for (int i = 0; i < list.size(); i++) {
+      KeyType key;
+      if (std::is_same<KeyType, int>::value) {
+        key = i;
+      } else {
+        key = Rcpp::as<KeyType>(names[i]);
+      }
+
+      SEXP valuesSEXP = list[i];
+      Rcpp::NumericVector values(valuesSEXP);
+      std::vector<ValueType> vec(values.begin(), values.end());
+
+      result[key] = vec;
+    }
+
+    return result;
+  }
+
+  // Function to print a map with generic key and value types
+  template <typename KeyType, typename ValueType>
+  void printMap(const std::map< KeyType, std::vector<ValueType> >& map) {
+    for (const auto& pair : map) {
+      std::cout << pair.first << ": ";
+      for (const auto& val : pair.second) {
+        std::cout << val << " ";
+      }
+      std::cout << std::endl;
+    }
+  }
 
 } // namespace utils
 

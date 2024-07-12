@@ -46,3 +46,19 @@ namespace utils {
   }
 
 } // namespace utils
+
+// Wrapper function to be called from R
+//' @useDynLib TLPR
+//' @export
+// [[Rcpp::export]]
+void convertListToMapTest(SEXP rlist, const std::string& KeyTypeArg) {
+  if (KeyTypeArg == "int") {
+    std::map<int, std::vector<float>> map = utils::convertListToMap<int, float>(rlist);
+    utils::printMap<int, float>(map);
+  } else if (KeyTypeArg == "std::string") {
+    std::map< std::string, std::vector<float> > map = utils::convertListToMap<std::string, float>(rlist);
+    utils::printMap<std::string, float>(map);
+  } else {
+    Rcpp::stop("KeyTypeArg must be either 'int' or 'std::string'");
+  }
+}
