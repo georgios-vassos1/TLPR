@@ -15,8 +15,14 @@ CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
 
 #' @useDynLib TLPR
 #' @export
-computeEnvironmentSTL <- function(jsonFile, stateSupport, numThreads = 8L) {
-    .Call('_TLPR_computeEnvironmentSTL', PACKAGE = 'TLPR', jsonFile, stateSupport, numThreads)
+updateStateIdx <- function(stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKey, flowKey, nOrigins, nDestinations) {
+    .Call('_TLPR_updateStateIdx', PACKAGE = 'TLPR', stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKey, flowKey, nOrigins, nDestinations)
+}
+
+#' @useDynLib TLPR
+#' @export
+computeEnvironmentSTL <- function(jsonFile, stateSupport, flowSupport, numThreads = 8L) {
+    .Call('_TLPR_computeEnvironmentSTL', PACKAGE = 'TLPR', jsonFile, stateSupport, flowSupport, numThreads)
 }
 
 #' @useDynLib TLPR

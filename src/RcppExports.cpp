@@ -46,16 +46,40 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// updateStateIdx
+std::vector<std::vector<int>> updateStateIdx(const std::vector<int>& stateIdx, const std::vector<int>& inflowIdx, const std::vector<std::vector<int>>& outflowIndices, const std::vector<double>& stateSupport, const std::vector<double>& extendedStateSupport, const std::vector<double>& flowSupport, const std::vector<double>& xI, const std::vector<double>& xJ, const double& storageLimit, const std::vector<int>& stateKey, const std::vector<int>& flowKey, const int& nOrigins, const int& nDestinations);
+RcppExport SEXP _TLPR_updateStateIdx(SEXP stateIdxSEXP, SEXP inflowIdxSEXP, SEXP outflowIndicesSEXP, SEXP stateSupportSEXP, SEXP extendedStateSupportSEXP, SEXP flowSupportSEXP, SEXP xISEXP, SEXP xJSEXP, SEXP storageLimitSEXP, SEXP stateKeySEXP, SEXP flowKeySEXP, SEXP nOriginsSEXP, SEXP nDestinationsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type stateIdx(stateIdxSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type inflowIdx(inflowIdxSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::vector<int>>& >::type outflowIndices(outflowIndicesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type extendedStateSupport(extendedStateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type xI(xISEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type xJ(xJSEXP);
+    Rcpp::traits::input_parameter< const double& >::type storageLimit(storageLimitSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type stateKey(stateKeySEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type flowKey(flowKeySEXP);
+    Rcpp::traits::input_parameter< const int& >::type nOrigins(nOriginsSEXP);
+    Rcpp::traits::input_parameter< const int& >::type nDestinations(nDestinationsSEXP);
+    rcpp_result_gen = Rcpp::wrap(updateStateIdx(stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKey, flowKey, nOrigins, nDestinations));
+    return rcpp_result_gen;
+END_RCPP
+}
 // computeEnvironmentSTL
-std::vector<std::vector<int>> computeEnvironmentSTL(const std::string jsonFile, const std::vector<double>& stateSupport, int numThreads);
-RcppExport SEXP _TLPR_computeEnvironmentSTL(SEXP jsonFileSEXP, SEXP stateSupportSEXP, SEXP numThreadsSEXP) {
+Eigen::MatrixXd computeEnvironmentSTL(const std::string jsonFile, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, int numThreads);
+RcppExport SEXP _TLPR_computeEnvironmentSTL(SEXP jsonFileSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP numThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string >::type jsonFile(jsonFileSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
     Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(computeEnvironmentSTL(jsonFile, stateSupport, numThreads));
+    rcpp_result_gen = Rcpp::wrap(computeEnvironmentSTL(jsonFile, stateSupport, flowSupport, numThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -100,7 +124,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
-    {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 3},
+    {"_TLPR_updateStateIdx", (DL_FUNC) &_TLPR_updateStateIdx, 13},
+    {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 4},
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 1},
     {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 4},
     {"_TLPR_convertListToMapTest", (DL_FUNC) &_TLPR_convertListToMapTest, 2},
