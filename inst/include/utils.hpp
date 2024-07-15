@@ -63,7 +63,7 @@ namespace utils {
       extended.reserve(2 * original.size() - 1);
 
       // Prepend negatives in reverse order
-      for (auto it = original.rbegin(); it != original.rend(); ++it) {
+      for (auto it = original.rbegin(); it != original.rend() - 1; ++it) {
           extended.push_back(-*it);
       }
 
