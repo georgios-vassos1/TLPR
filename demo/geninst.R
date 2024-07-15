@@ -3,16 +3,18 @@ library(TLPR)
 get_adjustment_weights <- function(env) {
   # Generate powers of nSI from 1 to nI
   si_powers <- with(env, nSI ^ (1L:nI))
+
+  if (env$nJ == 1L) return(c(1L, si_powers))
   # Calculate the base value (nSI ^ nI)
   base_value <- with(env, nSI ^ nI)
   # Generate products of base_value and powers of nSJ from 0 to (nJ - 1)
-  sj_powers <- base_value * with(env, (nSJ ^ (1L:(nJ - 1L))))
+  sj_powers <- base_value * with(env, nSJ ^ (1L:(nJ - 1L)))
   # Combine the results
   c(1L, si_powers, sj_powers)
 }
 
 env <- new.env()
-generate_cssap(env, rate = 4.0, tau = 4L, nB = 5L, nCS =10L, nCO = 2L, nI = 3L, nJ = 2L)
+generate_cssap(env, rate = 4.0, tau = 4L, nB = 5L, nCS =10L, nCO = 1L, nI = 1L, nJ = 1L)
 
 # apply(env$Cb, 1L, function(x) x, simplify = "array") -> env$Cbx
 
@@ -59,9 +61,10 @@ with(
     nD <- length(D$vals)
     nW <- length(W$vals)
     nOmega <- (nQ ^ nI) * (nD ^ nJ) * (nW ^ nCO)
-    adjw <- get_adjustment_weights(env)
+    stateKeys <- get_adjustment_weights(env)
+    flowKeys <- c(1L, nQ ^ (1L:(nI+nJ-1L)))
   }
 )
 
 json <- jsonlite::toJSON(sapply(names(env), get, envir = env), pretty = TRUE)
-write(json, file = "/Users/gva/drayage/TLPR/src/instance3x2_001.json")
+write(json, file = "/Users/gva/drayage/TLPR/src/instance1x1_001.json")
