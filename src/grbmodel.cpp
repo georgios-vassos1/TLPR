@@ -324,6 +324,7 @@ std::vector<std::vector<int>> updateStateIdx(
 // [[Rcpp::export]]
 Eigen::MatrixXd computeEnvironmentSTL(
     const std::string jsonFile, 
+    const int& t, // time stage
     const std::vector<double>& stateSupport,
     const std::vector<double>& flowSupport,
     int numThreads = 8) {
@@ -431,10 +432,10 @@ Eigen::MatrixXd computeEnvironmentSTL(
       std::vector<double> rhs(nStrategicCarriers + nSpotCarriers + nDestinations + nOrigins + 1, 0);
 
       // Instantiate dummy Gurobi model once to get the decision variables and contraints in place
-      transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[0], nSpotCarriers, nLanes);
+      transport = createTransportVars(model, n, winnerKeys, winners, bids, lanes, CTb, spotRates[t], nSpotCarriers, nLanes);
 
       // Do not change the order of calling the constraints
-      addCapacityConstraints(model, transport, winnerKeys,  winners, bids, carrierIdx, nSpotCarriers, nLanes, Cb[0], Co[0]);
+      addCapacityConstraints(model, transport, winnerKeys,  winners, bids, carrierIdx, nSpotCarriers, nLanes, Cb[t], Co[t]);
       addStorageLimitConstraints(model, transport, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits);
       addVolumeConstraint(model, transport, n, 10);
 
