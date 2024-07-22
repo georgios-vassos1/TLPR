@@ -2,10 +2,10 @@
 CXX_STD = C++17
 
 # Compiler flags
-CXXFLAGS = -Wall -O2
+CXXFLAGS = -Wall -O2 -Xpreprocessor -fopenmp
 
 # Include directories
-PKG_CPPFLAGS += -I../inst/include -I/Library/gurobi1102/macos_universal2/include -I/usr/local/opt/nlohmann-json/include
+PKG_CPPFLAGS += -I../inst/include -I/Library/gurobi1102/macos_universal2/include -I/usr/local/opt/nlohmann-json/include -I/opt/homebrew/opt/libomp/include
 
 # Libraries to link against
 PKG_LIBS += -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110

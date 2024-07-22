@@ -1,16 +1,16 @@
-CXX = clang++
-CXXFLAGS = -std=c++17 -fopenmp
+CXX = /opt/homebrew/opt/llvm/bin/clang++
+CXXFLAGS = -std=c++17 -fopenmp -O3 -Wall -Wextra -Wpedantic -Werror
 
 # Common include path
 COMMON_INCLUDES = -I../inst/include
 
 # Specific include paths
-NLOHMANN_JSON_INCLUDE = -I/usr/local/opt/nlohmann-json/include
+NLOHMANN_JSON_INCLUDE = -I/opt/homebrew/opt/nlohmann-json/include
 GUROBI_INCLUDE = -I/Library/gurobi1102/macos_universal2/include
-R_INCLUDE = -I/Library/Frameworks/R.framework/Versions/4.2/Resources/library/Rcpp/include
+R_INCLUDE = -I/opt/homebrew/lib/R/4.4/site-library/Rcpp/include
 
 # Library paths and libraries
-R_LIBS = -L/Library/Frameworks/R.framework/Resources/lib -lR
+R_LIBS = -L/opt/homebrew/opt/r/lib -lR
 GUROBI_LIBS = -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110
 
 .PHONY: all grbmodelxx readerxx xx clean
