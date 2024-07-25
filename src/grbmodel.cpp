@@ -501,7 +501,6 @@ Eigen::MatrixXd computeEnvironmentCx(
 
   for (int t = 0; t < tau; ++t) {
 
-    // TODO: fix parallelization
     // Enclose the thread-specific code within a block
     #pragma omp parallel
     {
@@ -648,7 +647,7 @@ Eigen::MatrixXd computeEnvironmentCx(
                   // Iterate over flow indices
                   for (int k2 = 0; k2 < nDdx; ++k2) {
                     std::vector<int> outflowIdx = outflowIndices[k2];
-                    // Update state for destinations based on current flow index
+                    // TODO: Update state for destinations based on current flow index
                     for (int k2dx = 0; k2dx < nDestinations; ++k2dx) {
                     }
 
