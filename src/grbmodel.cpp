@@ -483,6 +483,7 @@ Eigen::MatrixXd computeEnvironmentCx(
 
   // Initialize the Eigen matrix with n rows and 5 columns
   Eigen::MatrixXd transit(tau * nSdx * nAdx * nScen, 6);
+  transit.setConstant(std::numeric_limits<double>::quiet_NaN());
 
   // std::cout << "Number of states: " << nSdx << std::endl;
   // std::cout << "Number of actions: " << nAdx << std::endl;
@@ -656,6 +657,7 @@ Eigen::MatrixXd computeEnvironmentCx(
                     transit(p, 2) = i + 1;
                     transit(p, 3) = j + 1;
                     transit(p, 4) = kdx + 1;
+                    transit(p, 5) = t + 1;
                   }
 
                 }
