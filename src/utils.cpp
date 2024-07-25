@@ -22,7 +22,7 @@ namespace utils {
     std::mt19937 gen(rd()); // seed the generator
     std::uniform_int_distribution<> distr(lowerBound, upperBound); // define the range
 
-    for (size_t i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
       randomIntegers.push_back(distr(gen));
     }
 

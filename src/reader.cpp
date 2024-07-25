@@ -41,10 +41,10 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
   }
 
   // Print spot carrier data
-  for (size_t carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
+  for (int carrierIndex = 0; carrierIndex < nSpotCarriers; carrierIndex++) {
     std::cout << "Spot carrier index " << carrierIndex + 1 << " ";
 
-    for (size_t laneIndex = 0; laneIndex < nLanes; laneIndex++) {
+    for (int laneIndex = 0; laneIndex < nLanes; laneIndex++) {
 
       std::cout << "Lane index " << laneIndex + 1 << ": " << std::endl;
       const auto& lane = lanes[laneIndex];
