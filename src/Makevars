@@ -1,11 +1,21 @@
-# Use C++17 standard
-CXX_STD = C++17
+# Specify the C++ standard
+CXX_STD = CXX17
+
+# Define the compiler and flags for C++17
+CXX17 = /opt/homebrew/opt/llvm/bin/clang++ -std=c++17
 
 # Compiler flags
-CXXFLAGS = -Wall -O2 -Xpreprocessor -fopenmp
+# CXXFLAGS = -std=c++17 -fopenmp -O3 -Wall -Wextra -Wpedantic -Werror
+
+# Force the use of C++17 standard
+PKG_CXXFLAGS = -fopenmp
 
 # Include directories
-PKG_CPPFLAGS += -I../inst/include -I/Library/gurobi1102/macos_universal2/include -I/usr/local/opt/nlohmann-json/include -I/opt/homebrew/opt/libomp/include
+PKG_CPPFLAGS = -I"../inst/include" \
+  -I"/Library/gurobi1102/macos_universal2/include" \
+  -I"/usr/local/opt/nlohmann-json/include" \
+  -I"/opt/homebrew/opt/libomp/include"
 
 # Libraries to link against
-PKG_LIBS += -L/Library/gurobi1102/macos_universal2/lib -lgurobi_c++ -lgurobi110
+PKG_LIBS = -L"/Library/gurobi1102/macos_universal2/lib" -lgurobi_c++ -lgurobi110 \
+  -L"/opt/homebrew/opt/libomp/lib" -lomp
