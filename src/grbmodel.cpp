@@ -471,26 +471,30 @@ Eigen::MatrixXd computeEnvironmentCx(
 
   // TODO: Get state and scenario keys (maybe C++ utility)
 
-  const int nSdx = stateIndices.size();
+  const int nSdx = static_cast<int>(stateIndices.size());
   const int nAdx = nActions;
-  const int nQdx = inflowIndices.size();
-  const int nDdx = outflowIndices.size();
-  const int nWdx = spotRateIndices.size();
-  const int nScen = nQdx * nDdx * nWdx;
+  const int nQdx = static_cast<int>(inflowIndices.size());
+  const int nDdx = static_cast<int>(outflowIndices.size());
+  const int nWdx = static_cast<int>(spotRateIndices.size());
+  // Ensure nScen is calculated using long long to avoid overflow
+  const long long nScen = static_cast<long long>(nQdx) * nDdx * nWdx;
+  const long long nTransit = static_cast<long long>(tau) * nSdx * nAdx * nScen;
 
   // Start timing
   auto start = std::chrono::high_resolution_clock::now();
 
   // Initialize the Eigen matrix with n rows and 5 columns
-  Eigen::MatrixXd transit(tau * nSdx * nAdx * nScen, 6);
+  Eigen::MatrixXd transit(nTransit, 6);
   transit.setConstant(std::numeric_limits<double>::quiet_NaN());
 
+  // std::cout << "Number of time stages: " << tau << std::endl;
   // std::cout << "Number of states: " << nSdx << std::endl;
   // std::cout << "Number of actions: " << nAdx << std::endl;
   // std::cout << "Number of inflow indices: " << nQdx << std::endl;
   // std::cout << "Number of outflow indices: " << nDdx << std::endl;
   // std::cout << "Number of spot rates: " << nWdx << std::endl;
-  // std::cout << "Number of rows: " << nSdx * nAdx * nScen << std::endl;
+  // std::cout << "Number of scenarios: " << nScen << std::endl;
+  // std::cout << "Number of rows: " << nTransit << std::endl;
 
   // Set the number of threads
   omp_set_num_threads(numThreads);
