@@ -69,9 +69,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// computeEnvironmentSTL
-Eigen::MatrixXd computeEnvironmentSTL(const std::string jsonFile, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, int numThreads);
-RcppExport SEXP _TLPR_computeEnvironmentSTL(SEXP jsonFileSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP numThreadsSEXP) {
+// computeEnvironmentCx
+Eigen::MatrixXd computeEnvironmentCx(const std::string jsonFile, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, int numThreads);
+RcppExport SEXP _TLPR_computeEnvironmentCx(SEXP jsonFileSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP numThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -79,7 +79,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
     Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
     Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(computeEnvironmentSTL(jsonFile, stateSupport, flowSupport, numThreads));
+    rcpp_result_gen = Rcpp::wrap(computeEnvironmentCx(jsonFile, stateSupport, flowSupport, numThreads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -125,7 +125,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
     {"_TLPR_updateStateIdx", (DL_FUNC) &_TLPR_updateStateIdx, 13},
-    {"_TLPR_computeEnvironmentSTL", (DL_FUNC) &_TLPR_computeEnvironmentSTL, 4},
+    {"_TLPR_computeEnvironmentCx", (DL_FUNC) &_TLPR_computeEnvironmentCx, 4},
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 1},
     {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 4},
     {"_TLPR_convertListToMapTest", (DL_FUNC) &_TLPR_convertListToMapTest, 2},

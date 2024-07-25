@@ -21,8 +21,8 @@ updateStateIdx <- function(stateIdx, inflowIdx, outflowIndices, stateSupport, ex
 
 #' @useDynLib TLPR
 #' @export
-computeEnvironmentSTL <- function(jsonFile, stateSupport, flowSupport, numThreads = 8L) {
-    .Call('_TLPR_computeEnvironmentSTL', PACKAGE = 'TLPR', jsonFile, stateSupport, flowSupport, numThreads)
+computeEnvironmentCx <- function(jsonFile, stateSupport, flowSupport, numThreads = 8L) {
+    .Call('_TLPR_computeEnvironmentCx', PACKAGE = 'TLPR', jsonFile, stateSupport, flowSupport, numThreads)
 }
 
 #' @useDynLib TLPR
