@@ -8,7 +8,7 @@ CXX17 = /opt/homebrew/opt/llvm/bin/clang++ -std=c++17
 # CXXFLAGS = -std=c++17 -fopenmp -O3 -Wall -Wextra -Wpedantic -Werror
 
 # Force the use of C++17 standard
-PKG_CXXFLAGS = -fopenmp
+PKG_CXXFLAGS = -fopenmp -O3 -Wall -Wextra -Wpedantic
 
 # Include directories
 PKG_CPPFLAGS = -I"../inst/include" \
