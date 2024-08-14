@@ -1,3 +1,49 @@
+#' Reverse the columns of a matrix
+#'
+#' This function reverses the order of columns in a matrix.
+#'
+#' @param X A matrix.
+#' @return A matrix with columns in reversed order.
+#' @examples
+#' mat <- matrix(1:9, ncol = 3)
+#' rev_cols(mat)
+rev_cols <- function(X) {
+  X[, seq(ncol(X), 1L)]
+}
+
+#' Consolidate indices from lists
+#'
+#' This function takes a list of indices and consolidates them into a matrix where each row contains a unique combination of indices.
+#'
+#' @param lists A list of indices.
+#' @return A matrix where each row represents a unique combination of indices.
+#' @examples
+#' lists <- list(c(1, 2), c(3, 4), c(5, 6))
+#' consolidate_idx__(lists)
+consolidate_idx__ <- function(lists) {
+  lists |>
+    expand.grid() |>
+    unname() |>
+    as.matrix()
+}
+
+#' Consolidate indices from lists using data.table::CJ
+#'
+#' This function takes a list of indices and consolidates them into a matrix where each row contains a unique combination of indices using data.table::CJ function.
+#'
+#' @param lists A list of indices.
+#' @return A matrix where each row represents a unique combination of indices.
+#' @examples
+#' lists <- list(c(1, 2), c(3, 4), c(5, 6))
+#' consolidate_idx(lists)
+#' @export
+consolidate_idx <- function(lists) {
+  do.call(data.table::CJ, rev(lists)) |>
+    unname() |>
+    as.matrix() |>
+    rev_cols()
+}
+
 #' Compute Graph Data Table
 #'
 #' This function computes a data.table representing the graph for a given environment,
