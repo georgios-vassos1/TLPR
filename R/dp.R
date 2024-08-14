@@ -114,6 +114,97 @@ stateIdx <- function(env, Si, Sj, max.S, weights, ...) {
   c(c(Si, Sj+max.S) %*% weights + 1L)
 }
 
+#' Compute Environment Transitions and Rewards
+#'
+#' This function computes the transition matrix and rewards for a given environment over a specified time horizon.
+#' The function iterates over possible states, actions, and scenarios, computing the optimal assignments and 
+#' determining the resulting state transitions and associated rewards.
+#'
+#' @param env A list representing the environment, which includes all necessary data structures such as state, action, and scenario spaces.
+#' @param model An optimization model object used for solving the assignment problem.
+#' @param t An integer representing the current time step.
+#' @param start An integer representing the starting index of the state space to be considered.
+#' @param end An integer representing the ending index of the state space to be considered.
+#'
+#' @return A matrix where each row represents a transition, containing:
+#' \describe{
+#'   \item{next_i}{Index of the next state of the system.}
+#'   \item{i}{The current state index.}
+#'   \item{j}{The action index.}
+#'   \item{kdx}{The scenario index, a combination of Q, D, and W indices.}
+#' }
+#'
+#' @details
+#' The function works by iterating over the state indices `i`, action indices `j`, and scenario indices (combinations of `Q`, `D`, and `W`).
+#' For each combination, it computes the optimal assignment using the provided optimization model, and based on the results, 
+#' it computes the index of the next state and the reward. If the optimization problem is infeasible, the corresponding transition is skipped.
+#'
+#' @examples
+#' \dontrun{
+#' result <- computeEnvironmentRx(env, model, t = 1, start = 1, end = 100)
+#' }
+#'
+#' @export
+computeEnvironmentRx <- function(env, model, t, start, end) {
+
+  transit <- matrix(NA, nrow = (end - start + 1L) * env$nAdx * env$nScen, ncol = 5L)
+  for (i in seq(start, end)) {
+    for (j in seq(env$nAdx)) {
+      for (k1 in seq(env$nQdx)) {
+        q <- env$Q$vals[env$Qdx[k1,]]
+
+        rhs <- c(
+          # Carrier capacity
+          env$Cb[t,], env$Co[t,], 
+          # Storage limits
+          env$R - env$extendedStateSupport[env$Sdx[i,env$nI+env$J_]], env$stateSupport[env$Sdx[i,env$I_]] + q, 
+          # Transport volume
+          env$actionSupport[j])
+
+        for (k3 in seq(env$nWdx)) {
+          w <- rep(env$W$vals[env$Wdx[k3,]], env$nL)
+
+          optx <- optimal_assignment(
+            model, obj_ = c(env$CTb, w), 
+            rhs_ = rhs)
+
+          if (optx$status == "INFEASIBLE") next
+
+          # Obtain origin-destination assignment volumes
+          xI <- unlist(lapply(env$from_i, function(l) sum(optx$x[l])))
+          xJ <- unlist(lapply(env$to_j,   function(l) sum(optx$x[l])))
+
+          for (k2 in seq(env$nDdx)) {
+            d <- env$D$vals[env$Ddx[k2,]]
+
+            # Compute the index of the next state of the system
+            next_i <- sum(
+              c(
+                pmax(pmin(env$stateSupport[env$Sdx[i,env$I_]] + q - xI, env$R), 0L), 
+                pmin(pmax(env$extendedStateSupport[env$Sdx[i,env$nI+env$J_]] - d + xJ, -env$R), env$R) + env$R
+              ) * env$stateKeys) + 1L
+
+            kdx <- ((k3 - 1L) * env$nQdx + (k2 - 1L)) * env$nDdx + k1
+            # kdx <- sum(c(Qdx[k1,] - 1L, Ddx[k2,] - 1L, Wdx[k3,] - 1L) * flowKeys) + 1L
+
+            # Store into the transition matrix
+            transit[((i - start) * env$nAdx + (j - 1L)) * env$nScen + kdx,] <- c(
+              next_i,
+              h.t(
+                env, 
+                env$stateSupport[env$Sdx[next_i,env$I_]], 
+                env$extendedStateSupport[env$Sdx[next_i,env$nI+env$J_]], 
+                alpha = env$alpha) + optx$objval, 
+              i, j, kdx)
+          }
+        }
+      }
+    }
+  }
+
+  transit
+}
+
 #' Run scenarios
 #' 
 #' @param env Environment object containing relevant data
