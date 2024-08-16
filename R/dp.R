@@ -1,71 +1,28 @@
-#' Endogenous state vector
+#' Generate Adjustment Weights
 #'
-#' @param env Environment to host dynamic programming data
-#' @param nI Number of origin hubs
-#' @param nJ Number of destination hubs
-#' @param max_ Maximum value
-#' @param incr_ Increment value
-#' @export
-get_state_indices <- function(env, nI, nJ, max_, incr_ = 1L) {
-  env$SI_ <- seq(0.0, max_, by = incr_)
-  env$SJ_ <- seq(-max_, max_, by = incr_)
-  env$nSI <- length(env$SI_)
-  env$nSJ <- length(env$SJ_)
-
-  env$nSdx <- (env$nSI^nI)*(env$nSJ^nJ)
-  env$Sdx  <- consolidate_idx(c(replicate(nI, seq(env$nSI), simplify = FALSE), replicate(nJ, seq(env$nSJ), simplify = FALSE)))
-}
-
-#' Get scenario space
+#' This function generates a vector of adjustment weights based on the input environment `env`. 
+#' The weights are computed using powers of `nSI` and `nSJ` (if `nJ` is greater than 1).
 #'
-#' @param Q Q parameter
-#' @param D D parameter
-#' @param W W parameter
-#' @param hmg Boolean indicating whether to use hmg or not (default: TRUE)
+#' @param env An environment containing the variables `nSI`, `nI`, `nJ`, and `nSJ`. 
+#'   - `nSI` is an integer representing a scaling factor for the first group.
+#'   - `nI` is an integer indicating the number of elements in the first group.
+#'   - `nJ` is an integer representing the number of elements in the second group.
+#'   - `nSJ` is an integer representing a scaling factor for the second group.
+#'
+#' @return A numeric vector containing the adjustment weights.
+#'
 #' @export
-get_scenario_space <- function(env, nI, nJ, Q, D, W, hmg=TRUE) {
-  nQ <- length(Q$vals)
-  nD <- length(D$vals)
-  nW <- length(W$vals)
-
-  len_spot <- 1L
-  if (!hmg) {
-    len_spot <- env$nL
-  }
-
-  consolidate_idx(
-    c(replicate(nI, seq(nQ), simplify = FALSE), 
-      replicate(nJ, seq(nD), simplify = FALSE), 
-      replicate(len_spot, seq(nW), simplify = FALSE))
-  ) -> idx
-
-  env$nOmega <- nrow(idx)
-
-  I_ <- seq(nI)
-  J_ <- seq(nJ)
-
-  env$Phi.t <- cbind(
-    matrix(Q$vals[idx[,I_]], ncol = nI), 
-    matrix(D$vals[idx[,nI+J_]], ncol = nJ), 
-    matrix(W$vals[idx[,nI+nJ+seq(len_spot)]], ncol = len_spot))
-
-  env$PPhi.t <- apply(cbind(
-    matrix(Q$prob[idx[,I_]], ncol = nI), 
-    matrix(D$prob[idx[,nI+J_]], ncol = nJ), 
-    matrix(W$prob[idx[,nI+nJ+seq(len_spot)]], ncol = len_spot)), 1L, prod)
-}
-
-#' Convert state variable to state index
-#' 
-#' @param env Environment object containing relevant data
-#' @param Si Value representing some state information
-#' @param Sj Value representing some state information
-#' @param max.S Maximum value for a state
-#' @param weights Numeric vector of weights
-#' @return A numeric vector representing state index
-stateIdx <- function(env, Si, Sj, max.S, weights, ...) {
-  # Example weights: c(1L, nSI, nSI^2L, (nSI^2L)*nSJ)
-  c(c(Si, Sj+max.S) %*% weights + 1L)
+get_adjustment_weights <- function(env) {
+  # Generate powers of nSI from 1 to nI
+  si_powers <- with(env, nSI ^ (1L:nI))
+  
+  if (env$nJ == 1L) return(c(1L, si_powers))
+  # Calculate the base value (nSI ^ nI)
+  base_value <- with(env, nSI ^ nI)
+  # Generate products of base_value and powers of nSJ from 0 to (nJ - 1)
+  sj_powers <- base_value * with(env, nSJ ^ (1L:(nJ - 1L)))
+  # Combine the results
+  c(1L, si_powers, sj_powers)
 }
 
 #' Compute Environment Transitions and Rewards
@@ -157,6 +114,76 @@ computeEnvironmentRx <- function(env, model, t, start, end) {
   }
 
   transit
+}
+
+#' Endogenous state vector
+#'
+#' @param env Environment to host dynamic programming data
+#' @param nI Number of origin hubs
+#' @param nJ Number of destination hubs
+#' @param max_ Maximum value
+#' @param incr_ Increment value
+#' @export
+get_state_indices <- function(env, nI, nJ, max_, incr_ = 1L) {
+  env$SI_ <- seq(0.0, max_, by = incr_)
+  env$SJ_ <- seq(-max_, max_, by = incr_)
+  env$nSI <- length(env$SI_)
+  env$nSJ <- length(env$SJ_)
+
+  env$nSdx <- (env$nSI^nI)*(env$nSJ^nJ)
+  env$Sdx  <- consolidate_idx(c(replicate(nI, seq(env$nSI), simplify = FALSE), replicate(nJ, seq(env$nSJ), simplify = FALSE)))
+}
+
+#' Get scenario space
+#'
+#' @param Q Q parameter
+#' @param D D parameter
+#' @param W W parameter
+#' @param hmg Boolean indicating whether to use hmg or not (default: TRUE)
+#' @export
+get_scenario_space <- function(env, nI, nJ, Q, D, W, hmg=TRUE) {
+  nQ <- length(Q$vals)
+  nD <- length(D$vals)
+  nW <- length(W$vals)
+
+  len_spot <- 1L
+  if (!hmg) {
+    len_spot <- env$nL
+  }
+
+  consolidate_idx(
+    c(replicate(nI, seq(nQ), simplify = FALSE), 
+      replicate(nJ, seq(nD), simplify = FALSE), 
+      replicate(len_spot, seq(nW), simplify = FALSE))
+  ) -> idx
+
+  env$nOmega <- nrow(idx)
+
+  I_ <- seq(nI)
+  J_ <- seq(nJ)
+
+  env$Phi.t <- cbind(
+    matrix(Q$vals[idx[,I_]], ncol = nI), 
+    matrix(D$vals[idx[,nI+J_]], ncol = nJ), 
+    matrix(W$vals[idx[,nI+nJ+seq(len_spot)]], ncol = len_spot))
+
+  env$PPhi.t <- apply(cbind(
+    matrix(Q$prob[idx[,I_]], ncol = nI), 
+    matrix(D$prob[idx[,nI+J_]], ncol = nJ), 
+    matrix(W$prob[idx[,nI+nJ+seq(len_spot)]], ncol = len_spot)), 1L, prod)
+}
+
+#' Convert state variable to state index
+#' 
+#' @param env Environment object containing relevant data
+#' @param Si Value representing some state information
+#' @param Sj Value representing some state information
+#' @param max.S Maximum value for a state
+#' @param weights Numeric vector of weights
+#' @return A numeric vector representing state index
+stateIdx <- function(env, Si, Sj, max.S, weights, ...) {
+  # Example weights: c(1L, nSI, nSI^2L, (nSI^2L)*nSJ)
+  c(c(Si, Sj+max.S) %*% weights + 1L)
 }
 
 #' Run scenarios
