@@ -4,7 +4,7 @@
 \alias{create_model}
 \title{create_model Function}
 \usage{
-create_model(env, Idx = seq(4L), ...)
+create_model(env, ...)
 }
 \arguments{
 \item{env}{The environment variable.}

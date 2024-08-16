@@ -17,7 +17,7 @@ sample_exogenous_state <- function(func, params, ...) {
 #' @param args Arguments for policy functions.
 #' @param exog Exogenous states for simulation.
 #' @export
-simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ...) {
+simulate_system <- function(env, policy, args, exog, correction=FALSE, ...) {
   npi <- length(policy)
   # Simulation metrics
   S.I  <- matrix(0.0, nrow = (env$tau+1L)*env$nI, ncol = npi)
@@ -43,7 +43,7 @@ simulate_system <- function(env, policy, args, exog, RHSdx, correction=FALSE, ..
     # args[["idx"]]  <- order(c(env$CTb, env$CTo[t,]))
 
     for (pdx in seq_along(policy)) {
-      args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q[t])[RHSdx]
+      args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q[t])
       # args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], q[t])
 
       optx <- do.call(policy[[pdx]], args)

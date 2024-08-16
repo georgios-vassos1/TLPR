@@ -4,7 +4,7 @@
 \alias{simulate_system}
 \title{Simulate System}
 \usage{
-simulate_system(env, policy, args, exog, RHSdx, correction = FALSE, ...)
+simulate_system(env, policy, args, exog, correction = FALSE, ...)
 }
 \arguments{
 \item{env}{The environment variable.}

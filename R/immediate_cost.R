@@ -143,10 +143,10 @@ order_quantity <- function(env, ...) {
 #' @param ... Additional arguments.
 #' @return A model.
 #' @export
-create_model <- function(env, Idx = seq(4L), ...) {
+create_model <- function(env, ...) {
   args <- list(...)
   if (constraints <- is.null(args[["constraints"]])) {
-    constraints <- c(carrier_capacity, storage_limit, positivity_, order_quantity)[Idx]
+    constraints <- c(carrier_capacity, storage_limit, positivity_, order_quantity)
   }
 
   constr_list <- lapply(constraints, do.call, args = list(env))
