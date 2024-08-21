@@ -1,5 +1,6 @@
 library(TLPR)
 
+devtools::clean_dll("~/drayage/TLPR")
 devtools::build("~/drayage/TLPR")
 devtools::document("~/drayage/TLPR")
 devtools::install("~/drayage/TLPR", reload = F)
@@ -13,12 +14,12 @@ p    <- 5L
 mu   <- runif(p, 1.0, 10.0)
 covm <- generatePositiveDefiniteMatrix(p)
 
-TLPR::rmvnorm(n, p, mu, covm, 8L)
+TLPR::rmvnorm(n, mu, covm, 8L)
 
 points(X[1L:(n-1L)], X[2L:n])
 
 microbenchmark::microbenchmark(
-  TLPR::rmvnorm(n, p, mu, covm, 8L),
+  TLPR::rmvnorm(n, mu, covm, 8L),
   MASS::mvrnorm(n, mu, covm),
   times = 100L
 )
@@ -35,11 +36,11 @@ microbenchmark::microbenchmark(
 ## Dynamic program
 env <- new.env()
 
-json_path <- "/Users/gva/drayage/TLPR/src/instance3x2_001.json"
+json_path <- "~/drayage/TLPR/src/instances/instance1x1_12_001.json"
 jsonlite::fromJSON(json_path) |>
   list2env(envir = env)
 
-TLPR::computeEnvironmentSTL(json_path, seq(0L, env$nSI), numThreads = 10L)
+TLPR::computeEnvironmentCx(json_path, seq(0L, env$nSI), env$Q$vals, numThreads = 8L) -> resultCx
 
 args <- replicate(env$nI, env$Q$vals, simplify = FALSE)
 do.call(TLPR::CartesianProduct, args) |> nrow() -> nInflow
