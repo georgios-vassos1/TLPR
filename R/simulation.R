@@ -8,67 +8,94 @@ sample_exogenous_state <- function(func, params, ...) {
   do.call(func, params)
 }
 
+#' Random Volume Selection
+#' 
+#' Selects a random volume based on the given capacity and limits.
+#' 
+#' @param capacity A numeric vector representing the available capacities.
+#' @param limit A numeric value representing the upper limit for the selected volume.
+#' @param ... Additional arguments (currently not used).
+#' 
+#' @return A numeric value representing the selected volume, which is the minimum of a random sample from the capacity and the provided limit.
+#' @export
+random_volume <- function(capacity, limit, ...) {
+  min(sample(capacity, 1L), limit)
+}
+
 #' Simulate System
 #' 
-#' Simulates the system based on policies, exogenous states, and environment parameters.
+#' Simulates the system based on policy functions for transition and allocation, exogenous states, and environment parameters.
 #' 
-#' @param env The environment variable.
-#' @param policy The policy for simulation.
-#' @param args Arguments for policy functions.
-#' @param exog Exogenous states for simulation.
+#' @param env A list containing the environment variables including time horizon, resource limits, and cost parameters.
+#' @param pi_trans A function representing the policy for the transition.
+#' @param pi_alloc A list of functions representing the allocation policies to be used during the simulation.
+#' @param args A list of additional arguments to be passed to the policy functions.
+#' @param Q A matrix representing the exogenous state related to supply (optional). If NULL, it will be sampled based on the exog parameter.
+#' @param D A matrix representing the exogenous state related to demand (optional). If NULL, it will be sampled based on the exog parameter.
+#' @param ... Additional arguments (not used in the function directly).
+#' @param exog A list of functions and parameters for sampling exogenous states if Q or D are not provided.
+#' 
+#' @return A list containing the simulation results, including costs, allocations, state matrices, and the status of the simulation.
 #' @export
-simulate_system <- function(env, policy, args, exog, correction=FALSE, ...) {
-  npi <- length(policy)
+simulate_system <- function(env, pi_trans, pi_alloc, args, Q=NULL, D=NULL, ...) {
+  npi <- length(pi_alloc)
   # Simulation metrics
-  S.I  <- matrix(0.0, nrow = (env$tau+1L)*env$nI, ncol = npi)
-  S.J  <- matrix(0.0, nrow = (env$tau+1L)*env$nJ, ncol = npi)
-  X.I  <- matrix(0.0, nrow = env$tau*env$nI, ncol = npi)
-  X.J  <- matrix(0.0, nrow = env$tau*env$nJ, ncol = npi)
+  S.I  <- matrix(0.0, nrow = (env$tau + 1L) * env$nI, ncol = npi)
+  S.J  <- matrix(0.0, nrow = (env$tau + 1L) * env$nJ, ncol = npi)
+  X.I  <- matrix(0.0, nrow = env$tau * env$nI, ncol = npi)
+  X.J  <- matrix(0.0, nrow = env$tau * env$nJ, ncol = npi)
   cost <- matrix(NA, nrow = env$tau, ncol = npi)
   allocation <- matrix(NA, env$tau * env$nvars, ncol = npi)
   q    <- numeric(env$tau)
-  # Exogenous states
-  Q <- sample_exogenous_state(exog$Q$func, exog$Q$params)
-  D <- sample_exogenous_state(exog$D$func, exog$D$params)
+  
+  # Exogenous state variables
+  if (is.null(Q)) {
+    Q <- sample_exogenous_state(exog$Q$func, exog$Q$params)
+  }
+  if (is.null(D)) {
+    D <- sample_exogenous_state(exog$D$func, exog$D$params)
+  }
+  
   # Simulation
   for (t in seq(env$tau)) {
     idx <- (t-1L)*env$nI+env$I_
     jdx <- (t-1L)*env$nJ+env$J_
-
-    q[t] <- min(sample(sum(env$Cb[t,])+sum(env$Co[t,]), 1L), colSums(S.I[idx,,drop=F]+Q[idx]))
-
+    
+    # Transportation policy
+    args[["capacity"]] <- sum(env$Cb[t,])+sum(env$Co[t,])
+    args[["limit"]]    <- colSums(S.I[idx,,drop=F]+Q[idx])
+    
+    q[t] <- do.call(pi_trans, args)
+    
+    # Transition mechanism
     args[["obj_"]] <- c(env$CTb, env$CTo[t,])
     args[["n"]]    <- q[t]
     args[["x"]]    <- c(env$Cb[t,], env$Co[t,])
-    # args[["idx"]]  <- order(c(env$CTb, env$CTo[t,]))
-
-    for (pdx in seq_along(policy)) {
+    
+    for (pdx in seq_along(pi_alloc)) {
       args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q[t])
-      # args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], q[t])
-
-      optx <- do.call(policy[[pdx]], args)
+      
+      # Optimize for policy index pdx
+      optx <- do.call(pi_alloc[[pdx]], args)
       if (!is.null(optx[["status"]])) {
         if (optx[["status"]] == "INFEASIBLE") {
-          # print(optx[["status"]])
           return(list("status" = FALSE))
         }
       }
-      a.t <- optx$x
+      # Store optimal cost
       cost[t,pdx] <- optx$objval + h.t(env, S.I[idx,pdx], S.J[jdx,pdx], env$alpha)
+      # Store optimal allocation
+      a.t <- optx$x
       allocation[(t-1L)*env$nvars+seq(env$nvars),pdx] <- optx$x
-
+      # Store optimal decisions
       X.I[idx,pdx] <- unlist(lapply(env$from_i, function(k) sum(a.t[k])))
       X.J[jdx,pdx] <- unlist(lapply(env$to_j,   function(k) sum(a.t[k])))
-
-      # This term is an heuristic to compensate for the error caused by eliminating the stock constraint.
-      #   X.I might be larger than the stock, this can be corrected in the transition
-      #   X.J cannot be corrected easily to exactly match the volume that can be assigned
-      cterm <- rep(round(sum(pmax(X.I[idx,pdx] - S.I[idx,pdx] - Q[idx], 0L)) / env$nJ), env$nJ) * correction
-
+      # Update state variables
       S.I[idx+env$nI,pdx] <- pmin(pmax(S.I[idx,pdx] + Q[idx] - X.I[idx,pdx], 0L), env$R)
-      S.J[jdx+env$nJ,pdx] <- pmax(pmin(S.J[jdx,pdx] - D[jdx] + X.J[jdx,pdx] - cterm, env$R), -env$R)
+      S.J[jdx+env$nJ,pdx] <- pmax(pmin(S.J[jdx,pdx] - D[jdx] + X.J[jdx,pdx], env$R), -env$R)
     }
   }
+  # Return list
   list(
     "cost" = cost, "allocation" = allocation, 
     "S.I" = S.I, "S.J" = S.J, "X.I" = X.I, "X.J" = X.J, "Q" = Q, "D" = D, 

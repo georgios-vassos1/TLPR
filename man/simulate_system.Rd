@@ -4,17 +4,28 @@
 \alias{simulate_system}
 \title{Simulate System}
 \usage{
-simulate_system(env, policy, args, exog, correction = FALSE, ...)
+simulate_system(env, pi_trans, pi_alloc, args, Q = NULL, D = NULL, ...)
 }
 \arguments{
-\item{env}{The environment variable.}
+\item{env}{A list containing the environment variables including time horizon, resource limits, and cost parameters.}
 
-\item{policy}{The policy for simulation.}
+\item{pi_trans}{A function representing the policy for the transition.}
 
-\item{args}{Arguments for policy functions.}
+\item{pi_alloc}{A list of functions representing the allocation policies to be used during the simulation.}
 
-\item{exog}{Exogenous states for simulation.}
+\item{args}{A list of additional arguments to be passed to the policy functions.}
+
+\item{Q}{A matrix representing the exogenous state related to supply (optional). If NULL, it will be sampled based on the exog parameter.}
+
+\item{D}{A matrix representing the exogenous state related to demand (optional). If NULL, it will be sampled based on the exog parameter.}
+
+\item{...}{Additional arguments (not used in the function directly).}
+
+\item{exog}{A list of functions and parameters for sampling exogenous states if Q or D are not provided.}
+}
+\value{
+A list containing the simulation results, including costs, allocations, state matrices, and the status of the simulation.
 }
 \description{
-Simulates the system based on policies, exogenous states, and environment parameters.
+Simulates the system based on policy functions for transition and allocation, exogenous states, and environment parameters.
 }
