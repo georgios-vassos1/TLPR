@@ -44,6 +44,37 @@ consolidate_idx <- function(lists) {
     rev_cols()
 }
 
+## Parallel run
+#' Chunk Up a Sequence
+#'
+#' This function divides a sequence of length `n` into `k` approximately equal-sized chunks.
+#'
+#' @param n Integer. The total length of the sequence to be divided.
+#' @param k Integer. The number of chunks to divide the sequence into.
+#'
+#' @return A vector of integers representing the start of each chunk. The last element in the vector will always be `n + 1`, which represents the end of the last chunk.
+#'
+#' @examples
+#' # Divide a sequence of 10 elements into 3 chunks
+#' chunkup(10, 3)
+#' # This will return something like: c(1, 4, 7, 11)
+#'
+#' # Divide a sequence of 15 elements into 4 chunks
+#' chunkup(15, 4)
+#' # This will return something like: c(1, 4, 8, 12, 16)
+#'
+#' @export
+chunkup <- function(n, k) {
+  chunk_size <- n %/% k
+  chunks <- seq(1L, n, by = chunk_size)
+  if (length(chunks) < k + 1) {
+    chunks <- c(chunks, n + 1L)
+  } else {
+    chunks[k + 1] <- n + 1L
+  }
+  chunks
+}
+
 #' Compute Graph Data Table
 #'
 #' This function computes a data.table representing the graph for a given environment,
