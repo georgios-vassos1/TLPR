@@ -119,7 +119,6 @@ computeEnvironmentRx <- function(env, model, t, start, end) {
 #' @param nJ Number of destination hubs
 #' @param max_ Maximum value
 #' @param incr_ Increment value
-#' @export
 get_state_indices <- function(env, nI, nJ, max_, incr_ = 1L) {
   env$SI_ <- seq(0.0, max_, by = incr_)
   env$SJ_ <- seq(-max_, max_, by = incr_)
@@ -136,7 +135,6 @@ get_state_indices <- function(env, nI, nJ, max_, incr_ = 1L) {
 #' @param D D parameter
 #' @param W W parameter
 #' @param hmg Boolean indicating whether to use hmg or not (default: TRUE)
-#' @export
 get_scenario_space <- function(env, nI, nJ, Q, D, W, hmg=TRUE) {
   nQ <- length(Q$vals)
   nD <- length(D$vals)
@@ -193,7 +191,6 @@ stateIdx <- function(env, Si, Sj, max.S, weights, ...) {
 #' @param weights Numeric vector of weights
 #' @param FUN The assignment algorithm
 #' @return A matrix representing transit
-#' @export
 compute_environment <- function(env, env.dp, t, start, end, scenaria, weights, FUN, ...) {
   args  <- list(...)
   alpha <- args[["alpha"]]
