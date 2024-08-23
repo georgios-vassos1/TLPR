@@ -58,7 +58,7 @@ get_adjustment_weights <- function(env) {
 #' @export
 computeEnvironmentRx <- function(env, model, t, start, end) {
 
-  transit <- matrix(NA, nrow = (end - start + 1L) * env$nAdx * env$nScen, ncol = 5L)
+  transit <- matrix(NA, nrow = (end - start + 1L) * env$nAdx * env$nScen, ncol = 6L)
   for (i in seq(start, end)) {
     for (j in seq(env$nAdx)) {
       for (k1 in seq(env$nQdx)) {
@@ -101,12 +101,8 @@ computeEnvironmentRx <- function(env, model, t, start, end) {
             # Store into the transition matrix
             transit[((i - start) * env$nAdx + (j - 1L)) * env$nScen + kdx,] <- c(
               next_i,
-              h.t(
-                env, 
-                env$stateSupport[env$Sdx[next_i,env$I_]], 
-                env$extendedStateSupport[env$Sdx[next_i,env$nI+env$J_]], 
-                alpha = env$alpha) + optx$objval, 
-              i, j, kdx)
+              optx$objval, 
+              i, j, kdx, t)
           }
         }
       }
