@@ -70,32 +70,34 @@ transition_logic <- function(env, q, d) {
 #' @export
 storage_limits <- function(env, q) {
   # Initialize the storage limit matrix for items
-  A4 <- Matrix::spMatrix(ncol = env$nI, nrow = env$nI)
+  A4 <- Matrix::spMatrix(ncol = env$nI + 2L * env$nJ + env$nvars, nrow = env$nI)
   for (i in seq(env$nI)) {
-    A4[i, i] <- 1L
+    A4[i, i] <- -1L
+    idx <- unlist(lapply(env$to_j, function(y) intersect(env$from_i[[i]], y)))
+    A4[i, env$nI + 2L * env$nJ + idx] <- 1L
   }
 
   # Create padding for the A4 matrix
-  padding <- Matrix::spMatrix(ncol = 2L * env$nJ + env$nvars + env$nI + 2L * env$nJ, nrow = env$nI)
+  padding <- Matrix::spMatrix(ncol = env$nI + 2L * env$nJ, nrow = env$nI)
   A4 <- cbind(A4, padding)
 
   # Initialize the storage limit matrix for jobs
   A5 <- Matrix::spMatrix(ncol = 2L * env$nJ + env$nvars, nrow = env$nJ)
   for (j in seq(env$nJ)) {
     A5[j, (j - 1L) * 2L + 1L] <- 1L
-    jdx <- env$to_j[[j]]
+    jdx <- unlist(lapply(env$from_i, function(x) intersect(x, env$to_j[[j]])))
     A5[j, 2L * env$nJ + jdx] <- 1L
   }
-  
+
   # Create left and right padding for the A5 matrix
   lpadx <- Matrix::spMatrix(ncol = env$nI, nrow = env$nJ)
   rpadx <- Matrix::spMatrix(ncol = env$nI + 2L * env$nJ, nrow = env$nJ)
   A5 <- cbind(lpadx, A5, rpadx)
-  
+
   # Return the storage limit components
   list(
     'A'     = rbind(A4, A5),
-    'rhs'   = c(env$R - q, rep(env$R, env$nJ)),
+    'rhs'   = c(q, rep(env$R, env$nJ)),
     'sense' = rep("<", env$nI + env$nJ)
   )
 }
@@ -132,7 +134,7 @@ multiperiod_expansion <- function(env, Q, D, A, obj, rhs, sns) {
     rhs.tau[(t - 1L) * nrow(A) + seq(nrow(A))] <- c(
       c(env$Cb[t, ], env$Co[t, ]),
       c(Q[(t - 1L) * env$nI + env$I_], D[(t - 1L) * env$nJ + env$J_]),
-      env$R - Q[(t - 1L) * env$nI + env$I_],
+      Q[(t - 1L) * env$nI + env$I_],
       rep(env$R, env$nJ)
     )
   }
