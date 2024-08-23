@@ -111,59 +111,6 @@ compute_graph_dt <- function(env, S.I, S.J, allocation) {
   dt[, .(assignment = sum(assignment, na.rm = TRUE)), by = .(t, origin, destination)]
 }
 
-#' Plot 2x2 Instance
-#'
-#' This function plots a series of graphs representing the state of the environment at different times.
-#'
-#' @param env A list containing the environment variables including `tau`, `nI`, and `nJ`.
-#' @param graph.dt A data.table containing the graph data with columns `t`, `origin`, `destination`, and `assignment`.
-#' @param S.I A vector representing the source nodes.
-#' @param S.J A vector representing the destination nodes.
-#' @param Q A vector representing some quantities related to the nodes.
-#' @param D A vector representing some other quantities related to the nodes.
-#' 
-#' @import data.table igraph
-#' @examples
-#' # Assuming `env`, `graph.dt`, `S.I`, `S.J`, `Q`, and `D` are defined
-#' plot2x2instance(env, graph.dt, S.I, S.J, Q, D)
-#'
-#' @export
-plot2x2instance <- function(env, graph.dt, S.I, S.J, Q, D) {
-  n <- 2L
-  reflex <- diag(n)[, seq(n, 1L)]
-  
-  # Set up the plotting area to display multiple plots
-  par(mfrow = c(3L, 4L))
-  for (t_ in seq(env$tau)) {
-    # Create an igraph object for the current time step
-    g <- graph_from_data_frame(graph.dt[t == t_, -1L], directed = TRUE, vertices = seq(env$nI + env$nJ))
-    
-    # Set vertex attributes
-    V(g)$color <- "lightblue"
-    V(g)$size <- 50L  # Size of the vertices
-    
-    # Set edge attributes
-    E(g)$arrow.size <- 0.25  # Size of the arrows
-    E(g)$weight <- graph.dt$assignment[(t_ - 1L) * env$nL + seq(env$nL)]
-    
-    # Plot the graph with edge labels
-    plot(g, edge.label = E(g)$weight, layout = igraph::layout_on_grid(g) %*% reflex, main = paste0("t = ", t_))
-    
-    # Add text labels to the plot
-    text(x = c(-1.34, -1.34, 1.34, 1.34, -1.00, -1.00, 1.00, 1.00), 
-         y = c(-1.00, 1.00, -1.00, 1.00, -0.60, 0.60, -0.60, 0.60), 
-         labels = c(
-           Q[(t_ - 1L) * env$nI + seq(env$nI)],
-           D[(t_ - 1L) * env$nI + seq(env$nI)],
-           S.I[(t_ - 1L) * env$nI + env$I_, 1L],
-           S.J[(t_ - 1L) * env$nJ + env$J_, 1L]
-         ),
-         adj = c(.5, .5))
-  }
-  # Reset plotting area to single plot
-  par(mfrow = c(1L, 1L))
-}
-
 #' Generate a Positive Definite Matrix
 #'
 #' This function generates a random symmetric positive definite matrix of a given size.
@@ -186,4 +133,95 @@ generatePositiveDefiniteMatrix <- function(p) {
   symmetricMatrix <- symmetricMatrix + diag(p) * 1e-3
   
   return(symmetricMatrix)
+}
+
+#' Create a Gradient Color Palette
+#'
+#' This function generates a gradient color palette between two colors, specified by `low` and `high`.
+#' If `norm_` is provided, it maps the normalized z-values to corresponding colors in the gradient palette.
+#'
+#' @param n Integer. The number of colors to generate in the gradient palette.
+#' @param norm_ Numeric vector (optional). A vector of normalized values to map to the gradient palette.
+#' @param low Character. The hex code for the color representing the low end of the gradient. Default is `#80FFFF`.
+#' @param high Character. The hex code for the color representing the high end of the gradient. Default is `#FF80FF`.
+#'
+#' @return A vector of colors. If `norm_` is not provided, it returns a vector of `n` colors representing the gradient. 
+#'         If `norm_` is provided, it returns a vector of colors corresponding to the mapped values.
+#'
+#' @examples
+#' create_gradient_palette(5)
+#' create_gradient_palette(10, norm_ = runif(10))
+#'
+#' @export
+create_gradient_palette <- function(n, norm_=NULL, low = "#80FFFF", high = "#FF80FF") {
+  # Create a gradient color palette
+  gradient_colors <- colorRampPalette(c(low, high))(n)
+  if (is.null(norm_)) return(gradient_colors)
+
+  # Map normalized z-values to colors in the gradient palette
+  gradient_colors[cut(norm_, breaks = n, include.lowest = TRUE)]
+}
+
+#' Action-Value Surface for Fixed Exit State
+#'
+#' This function computes the action-value surface given a fixed exit state in a specified environment.
+#' It calculates the state-action index values based on the state support and the environment configuration.
+#'
+#' @param env List. The environment object containing the state support, action indices, and other relevant parameters.
+#' @param exit_state Numeric vector. The fixed exit state used to calculate the action-value surface.
+#' @param ... Additional arguments passed to the function.
+#'
+#' @return An integer vector representing the action-value surface indices.
+#'
+#' @examples
+#' env <- list(nI = 2, stateSupport = c(1, 2), R = 1, nAdx = 3, stateKeys = c(1, 10))
+#' exit_state <- c(1, 2)
+#' get_Qdx_fixed_exit(env, exit_state)
+#'
+#' @export
+get_Qdx_fixed_exit <- function(env, exit_state, ...) {
+  Sdx  <- do.call(TLPR::CartesianProductX, c(replicate(env$nI, seq_along(env$stateSupport), simplify = FALSE)))
+  nSdx <- nrow(Sdx)
+
+  rng  <- seq(env$nAdx)
+
+  Qdx <- integer(nSdx * env$nAdx)
+  for (i in seq(nSdx)) {
+    idx <- (sum(c(env$stateSupport[Sdx[i,]], env$R + exit_state) * env$stateKeys) + 1L)
+    Qdx[(i - 1L) * env$nAdx + rng] <- (idx - 1L) * env$nAdx + rng
+  }
+
+  Qdx
+}
+
+#' Action-Value Surface for Fixed Entry State
+#'
+#' This function computes the action-value surface given a fixed entry state in a specified environment.
+#' It calculates the state-action index values based on the extended state support and the environment configuration.
+#'
+#' @param env List. The environment object containing the extended state support, action indices, and other relevant parameters.
+#' @param entry_state Numeric vector. The fixed entry state used to calculate the action-value surface.
+#' @param ... Additional arguments passed to the function.
+#'
+#' @return An integer vector representing the action-value surface indices.
+#'
+#' @examples
+#' env <- list(nJ = 2, extendedStateSupport = c(1, 2), R = 1, nAdx = 3, stateKeys = c(1, 10))
+#' entry_state <- c(1, 2)
+#' get_Qdx_fixed_entry(env, entry_state)
+#'
+#' @export
+get_Qdx_fixed_entry <- function(env, entry_state, ...) {
+  Sdx  <- do.call(TLPR::CartesianProductX, c(replicate(env$nJ, seq_along(env$extendedStateSupport), simplify = FALSE)))
+  nSdx <- nrow(Sdx)
+
+  rng  <- seq(env$nAdx)
+
+  Qdx <- integer(nSdx * env$nAdx)
+  for (j in seq(nSdx)) {
+    jdx <- (sum(c(entry_state, env$R + env$extendedStateSupport[Sdx[j,]]) * env$stateKeys) + 1L)
+    Qdx[(j - 1L) * env$nAdx + rng] <- (jdx - 1L) * env$nAdx + rng
+  }
+
+  Qdx
 }
