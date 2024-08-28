@@ -120,35 +120,6 @@ for (t in seq(env$tau)) {
 }
 # all(env$transit[,1L] == c(pmin(pmax(outer(c(outer(-env$demandRange, env$actionSupport, '+')), env$stateSupport, '+'), 0L), env$R) + 1L), na.rm = T)
 
-# Value function (echaustive)
-V <- matrix(NA, nrow = env$tau + 1L, ncol = env$nSdx * env$nDdx)
-V[env$tau+1L,] <- rep(env$stateSupport * (env$alpha %/% 10L), each = env$nScen)
-Q <- matrix(0.0, nrow = env$tau * env$nSdx * env$nDdx, ncol = env$nAdx)
-# Exact dynamic programming
-for (t in seq(env$tau,1L)) {
-  print(t)
-  for (i in env$Sdx) {
-    for (k in env$Ddx) {
-      qdx <- ((t - 1L) * env$nSdx + (i - 1L)) * env$nDdx + k
-      vdx <- (i - 1L) * env$nDdx + k
-
-      p <- (((t - 1L) * env$nSdx + (i - 1L)) * env$nAdx + env$Adx - 1L) * env$nDdx + k
-
-      actions <- env$transit[p, 4L] |> na.omit() |> as.vector()
-      next_i  <- env$transit[p, 1L] |> na.omit() |> as.vector()
-      rewards <- env$transit[p, 2L] |> na.omit() |> as.vector()
-
-      Q[qdx, actions] <- rewards + c(env$D$prob %*% matrix(V[t + 1L, c(outer(env$Ddx, (next_i - 1L) * env$nDdx, '+'))], nrow = env$nDdx))
-      V[t, vdx] <- max(Q[qdx,], na.rm = T)
-    }
-  }
-}
-t <- 2L
-i <- 5L
-plot(env$stateSupport, c(env$D$prob %*% matrix(V[t,], nrow = env$nDdx)), type = 'o', ylab = 'V(s)', xlab = 's')
-matplot(env$stateSupport, t(matrix(V[t,], nrow = env$nDdx)), type = 'l', ylab = 'V(s)', xlab = 's')
-matplot(env$actionSupport, t(Q[((t - 1L) * env$nSdx + (i - 1L)) * env$nDdx + env$Ddx,]), ylab = 'Q(s,x)', xlab = 'x', type = 's')
-
 # Simulation
 system_transition <- function(env, pi, varphidx, init_s = NULL) {
   S    <- matrix(0.0, nrow = env$tau + 1L, ncol = 1L)
@@ -229,7 +200,6 @@ plot(V[t,])
 # i <- 1L
 # plot(env$actionSupport, Q[t, (i - 1L) * env$nAdx + env$Adx], type = 's')
 
-
 S0 <- 0L
 N   <- 10000L
 sim <- numeric(N)
@@ -240,3 +210,32 @@ summary(sim)
 system_transition(env, pi_star, varphidx, init_s = S0)
 
 sum(sim > system_transition(env, pi_star, varphidx, init_s = S0)$cost) / N
+
+# # Value function (exhaustive)
+# V <- matrix(NA, nrow = env$tau + 1L, ncol = env$nSdx * env$nDdx)
+# V[env$tau+1L,] <- rep(env$stateSupport * (env$alpha %/% 10L), each = env$nScen)
+# Q <- matrix(0.0, nrow = env$tau * env$nSdx * env$nDdx, ncol = env$nAdx)
+# # Exact dynamic programming
+# for (t in seq(env$tau,1L)) {
+#   print(t)
+#   for (i in env$Sdx) {
+#     for (k in env$Ddx) {
+#       qdx <- ((t - 1L) * env$nSdx + (i - 1L)) * env$nDdx + k
+#       vdx <- (i - 1L) * env$nDdx + k
+# 
+#       p <- (((t - 1L) * env$nSdx + (i - 1L)) * env$nAdx + env$Adx - 1L) * env$nDdx + k
+# 
+#       actions <- env$transit[p, 4L] |> na.omit() |> as.vector()
+#       next_i  <- env$transit[p, 1L] |> na.omit() |> as.vector()
+#       rewards <- env$transit[p, 2L] |> na.omit() |> as.vector()
+# 
+#       Q[qdx, actions] <- rewards + c(env$D$prob %*% matrix(V[t + 1L, c(outer(env$Ddx, (next_i - 1L) * env$nDdx, '+'))], nrow = env$nDdx))
+#       V[t, vdx] <- max(Q[qdx,], na.rm = T)
+#     }
+#   }
+# }
+# t <- 2L
+# i <- 5L
+# plot(env$stateSupport, c(env$D$prob %*% matrix(V[t,], nrow = env$nDdx)), type = 'o', ylab = 'V(s)', xlab = 's')
+# matplot(env$stateSupport, t(matrix(V[t,], nrow = env$nDdx)), type = 'l', ylab = 'V(s)', xlab = 's')
+# matplot(env$actionSupport, t(Q[((t - 1L) * env$nSdx + (i - 1L)) * env$nDdx + env$Ddx,]), ylab = 'Q(s,x)', xlab = 'x', type = 's')
