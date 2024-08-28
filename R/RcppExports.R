@@ -15,8 +15,8 @@ CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
 
 #' @useDynLib TLPR
 #' @export
-updateStateIdx <- function(stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKey, flowKey, nOrigins, nDestinations) {
-    .Call('_TLPR_updateStateIdx', PACKAGE = 'TLPR', stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKey, flowKey, nOrigins, nDestinations)
+updateStateIdx <- function(stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKeys, nOrigins, nDestinations) {
+    .Call('_TLPR_updateStateIdx', PACKAGE = 'TLPR', stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKeys, nOrigins, nDestinations)
 }
 
 #' @useDynLib TLPR

@@ -331,7 +331,7 @@ std::vector<std::vector<int>> stackUncertaintyIdxVectors(
 //' @useDynLib TLPR
 //' @export
 // [[Rcpp::export]]
-std::vector<std::vector<int>> updateStateIdx(
+std::vector<int> updateStateIdx(
     const std::vector<int>& stateIdx, 
     const std::vector<int>& inflowIdx, 
     const std::vector<std::vector<int>>& outflowIndices,
@@ -341,19 +341,23 @@ std::vector<std::vector<int>> updateStateIdx(
     const std::vector<double>& xI,
     const std::vector<double>& xJ,
     const double& storageLimit,
-    const std::vector<int>& stateKey,
-    const std::vector<int>& flowKey,
+    const std::vector<int>& stateKeys,
     const int& nOrigins,
     const int& nDestinations) {
 
-  std::vector<std::vector<int>> nextStateIdx(outflowIndices.size(), std::vector<int>(2, 0));
+  std::vector<int> nextStateIdx(outflowIndices.size(), 0);
   std::vector<double> nextState(nOrigins + nDestinations, 0.0);
-  std::vector<double> fdx(nOrigins + nDestinations, 0.0);
 
   // Calculate initial state for origins
   for (int i = 0; i < nOrigins; ++i) {
-    fdx[i] = inflowIdx[i];
-    nextState[i] = std::max(std::min(stateSupport[stateIdx[i]] + flowSupport[fdx[i]], storageLimit) - xI[i], 0.0);
+    std::cout << "State index: " << stateIdx[i] << std::endl;
+    std::cout << "Inflow index: " << inflowIdx[i] << std::endl;
+    std::cout << "xI: " << xI[i] << std::endl;
+    std::cout << "State support: " << stateSupport[stateIdx[i]] << std::endl;
+    std::cout << "Flow support: " << flowSupport[inflowIdx[i]] << std::endl;
+    std::cout << "Storage limit: " << storageLimit << std::endl;
+    nextState[i] = std::max(std::min(stateSupport[stateIdx[i]] + flowSupport[inflowIdx[i]] - xI[i], storageLimit), 0.0);
+    std::cout << "Next state: " << nextState[i] << std::endl;
   }
 
   // Iterate over flow indices
@@ -361,18 +365,21 @@ std::vector<std::vector<int>> updateStateIdx(
     std::vector<int> outflowIdx = outflowIndices[k];
     // Update state for destinations based on current flow index
     for (int j = 0; j < nDestinations; ++j) {
-      fdx[nOrigins + j] = outflowIdx[j];
-      nextState[nOrigins + j] = storageLimit + std::min(std::max(extendedStateSupport[stateIdx[nOrigins + j]] - flowSupport[fdx[nOrigins + j]], -storageLimit) + xJ[j], storageLimit);
+      std::cout << "State index: " << stateIdx[nOrigins + j] << std::endl;
+      std::cout << "Outflow index: " << outflowIdx[j] << std::endl;
+      std::cout << "xJ: " << xJ[j] << std::endl;
+      std::cout << "Extended state support: " << extendedStateSupport[stateIdx[nOrigins + j]] << std::endl;
+      std::cout << "Flow support: " << flowSupport[outflowIdx[j]] << std::endl;
+      std::cout << "Storage limit: " << storageLimit << std::endl;
+      nextState[nOrigins + j] = storageLimit + std::min(std::max(extendedStateSupport[stateIdx[nOrigins + j]] - flowSupport[outflowIdx[j]] + xJ[j], -storageLimit), storageLimit);
+      std::cout << "Next state: " << nextState[nOrigins + j] << std::endl;
     }
     // Calculate the index using inner product
-    nextStateIdx[k][0] = std::inner_product(nextState.begin(), nextState.end(), stateKey.begin(), 0);
-    // Compute and return scenario index (easy)
-    nextStateIdx[k][1] = std::inner_product(fdx.begin(), fdx.end(), flowKey.begin(), 0);
+    nextStateIdx[k] = std::inner_product(nextState.begin(), nextState.end(), stateKeys.begin(), 0);
   }
 
   return nextStateIdx;
 }
-
 
 // Function to compute the environment
 //' @useDynLib TLPR
@@ -407,7 +414,7 @@ Eigen::MatrixXd computeEnvironmentCx(
   const int nSources           = input["nL_"][0].get<int>();
   const int nLanes             = input["nL"][0].get<int>();
   const int nActions           = input["R"][0].get<int>() + 1;
-  const int storageLimit       = input["R"][0].get<int>();
+  const int storageLimit       = input["R"][0].get<double>();
   const int tau                = input["tau"][0].get<int>();
 
   // Compound types (data container classes)
@@ -604,7 +611,7 @@ Eigen::MatrixXd computeEnvironmentCx(
 
                 std::vector<double> spotRatesTmp(nSpotCarriers, 0.0);
                 for (int k3dx = 0; k3dx < nSpotCarriers; ++k3dx) {
-                    spotRatesTmp[k3dx] = spotRateSupport[spotRateIdx[k3dx]];
+                  spotRatesTmp[k3dx] = spotRateSupport[spotRateIdx[k3dx]];
                 }
                 updateSpotRates(model, transport, spotRatesTmp, nStrategicCarriers, nSpotCarriers, nLanes);
 
@@ -642,20 +649,28 @@ Eigen::MatrixXd computeEnvironmentCx(
 
                   // Compute and store the next state
                   // Get next state code index
-                  std::vector<std::vector<int>> nextStateIndices(nDdx, std::vector<int>(2, 0));
+                  std::vector<int>    nextStateIdx(nDdx, 0);
+                  std::vector<double> nextState(nOrigins + nDestinations, 0.0);
+
+                  for (int k1dx = 0; k1dx < nOrigins; ++k1dx) {
+                    nextState[k1dx] = std::max<double>(std::min<double>(stateSupport[stateIdx[k1dx]] + flowSupport[inflowIdx[k1dx]] - xI[k1dx], storageLimit), 0.0);
+                  }
 
                   // Iterate over flow indices
                   for (int k2 = 0; k2 < nDdx; ++k2) {
                     std::vector<int> outflowIdx = outflowIndices[k2];
+
                     // TODO: Update state for destinations based on current flow index
                     for (int k2dx = 0; k2dx < nDestinations; ++k2dx) {
+                      nextState[nOrigins + k2dx] = storageLimit + std::min<double>(std::max<double>(extendedStateSupport[stateIdx[nOrigins + k2dx]] - flowSupport[outflowIdx[k2dx]] + xJ[k2dx], -storageLimit), storageLimit);
                     }
+                    nextStateIdx[k2] = std::inner_product(nextState.begin(), nextState.end(), stateKeys.begin(), 0);
 
                     // Store (newStateIdx, objective, stateIdx, actionIdx, scenarioIdx) in transit matrix
                     int kdx = (k3 * nQdx + k2) * nDdx + k1;
                     int p = ((t * nSdx + i) * nAdx + j) * nQdx * nDdx * nWdx + kdx;
 
-                    transit(p, 0) = 0;
+                    transit(p, 0) = nextStateIdx[k2] + 1;
                     transit(p, 1) = objval;
                     transit(p, 2) = i + 1;
                     transit(p, 3) = j + 1;
