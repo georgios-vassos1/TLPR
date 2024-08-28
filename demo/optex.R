@@ -111,17 +111,28 @@ dynamic_programming <- function(env, transit, varphidx, ...) {
   ## Dynamic Programming Loop
   for (t in seq(env$tau,1L)) {
     print(t)
+    k <- varphidx[t]
     for (i in seq(env$nSdx)) {
-      idx <- (i - 1L) * env$nAdx + seq(env$nAdx)
       for (j in seq(env$nAdx)) {
         p <- (((t - 1L) * env$nSdx + (i - 1L)) * env$nAdx + (j - 1L)) * env$nScen
-        next_s <- transit[p + seq(env$nScen), 1L] |> na.omit() |> as.integer()
-        cost.t <- transit[p + varphidx[t], 2L]
-        kdx    <- transit[p + seq(env$nScen), 5L] |> na.omit() |> as.integer()
-        prob   <- data.table::fcoalesce(env$scnpb[kdx] / sum(env$scnpb[kdx], na.rm = T), 0.0)
-        holding.t <- h.t(env, env$stateSupport[env$Sdx[i,env$I_]], env$extendedStateSupport[env$Sdx[i,env$nI+env$J_]], env$alpha)
-        Q[t, (i - 1L) * env$nAdx + j] <- - cost.t - holding.t + c(V[t + 1L, next_s] %*% prob)
+
+        cost.t   <- transit[p + k, 2L]
+        hold.t   <- h.t(env, env$stateSupport[env$Sdx[i, env$I_]], env$extendedStateSupport[env$Sdx[i, env$nI + env$J_]], env$alpha)
+        reward.t <- - cost.t - hold.t
+
+        # # Integrating stochasticity
+        # next_p <- p + seq(env$nScen)
+        # kdx    <- which(!is.na(transit[next_p, 1L]))
+        # next_i <- transit[next_p, 1L][kdx]
+
+        # prob   <- env$scnpb[kdx] / sum(env$scnpb[kdx])
+        # Q[t, (i - 1L) * env$nAdx + j] <- reward.t + sum(V[t + 1L, next_i] * prob)
+
+        # Deterministic solution (works)
+        next_i <- transit[p + k, 1L]
+        Q[t, (i - 1L) * env$nAdx + j] <- reward.t + V[t + 1L, next_i]
       }
+      idx <- (i - 1L) * env$nAdx + env$Adx
       # Value function
       V[t,i] <- max(Q[t, idx], na.rm = TRUE)
       # Policy
@@ -142,13 +153,18 @@ dynamic_programming <- function(env, transit, varphidx, ...) {
 }
 
 ## Simulate policies
-system_transition <- function(env, transit, pi, varphidx) {
+system_transition <- function(env, transit, pi, varphidx, init_s = NULL) {
   S.I  <- matrix(0.0, nrow = (env$tau + 1L) * env$nI, ncol = 1L)
   S.J  <- matrix(0.0, nrow = (env$tau + 1L) * env$nJ, ncol = 1L)
   X.I  <- matrix(0.0, nrow = env$tau * env$nI, ncol = 1L)
   X.J  <- matrix(0.0, nrow = env$tau * env$nJ, ncol = 1L)
   cost <- matrix(NA,  nrow = env$tau + 1L, ncol = 1L)
   q    <- numeric(env$tau)
+
+  if (!is.null(init_s)) {
+    S.I[1L,] <- init_s[env$I_]
+    S.J[1L,] <- init_s[env$nI + env$J_]
+  }
 
   # Simulation loop
   for (t in seq(env$tau)) {
@@ -185,7 +201,8 @@ system_transition <- function(env, transit, pi, varphidx) {
 }
 
 # Simulate from transit 
-(varphidx <- sample(nrow(env$scndx), env$tau, replace = TRUE, prob = env$scnpb)) # Fix scenario, e.g., c(17L, 15L, 17L, 14L), c(8L, 16L, 12L, 10L), c(5L,  8L,  8L, 11L), c(18L, 8L, 8L, 1L), c(9L, 18L, 7L, 10L)
+# Fix scenario, e.g., c(17L, 15L, 17L, 14L), c(8L, 16L, 12L, 10L), c(5L,  8L,  8L, 11L), c(18L, 8L, 8L, 1L), c(9L, 18L, 7L, 10L)
+(varphidx <- sample(nrow(env$scndx), env$tau, replace = TRUE, prob = env$scnpb))
 for (k in varphidx) {
   print(c(env$Q$vals[env$scndx[k,env$I_]], env$D$vals[env$scndx[k,env$nI+env$J_]], env$W$vals[env$scndx[k,env$nI+env$J_+1L]]))
 }
@@ -193,18 +210,19 @@ for (k in varphidx) {
 dynamic_programming(env, transit, varphidx) |>
   list2env(envir = .GlobalEnv)
 
+S0  <- c(0L, 2L)
 N   <- 5000L
 sim <- numeric(N)
 for (idx in 1L:N) {
-  sim[idx] <- system_transition(env, transit, pi_rand, varphidx)$cost
+  sim[idx] <- system_transition(env, transit, pi_rand, varphidx, init_s = S0)$cost
 }
 summary(sim)
-system_transition(env, transit, pi_star, varphidx)$cost
+system_transition(env, transit, pi_star, varphidx, init_s = S0)$cost
 
-sum(sim < system_transition(env, transit, pi_star, varphidx)$cost) / N
+sum(sim < system_transition(env, transit, pi_star, varphidx, init_s = S0)$cost) / N
 
 # Illustration of the system evolution
-system_transition(env, transit, pi_star, varphidx) |>
+system_transition(env, transit, pi_star, varphidx, init_s = S0) |>
   list2env(envir = .GlobalEnv)
 
 lanes <- c(env$L_, seq(env$nL))
@@ -308,7 +326,7 @@ Qx |>
 plotQsurfaceForFixedExit(Qx, exit_state, t)
 
 # Action value surface for fixed entry state
-entry_state <- 0L
+entry_state <- 4L
 Qdx <- get_Qdx_fixed_entry(env, entry_state)
 # TLPR::CartesianProductX(env$actionSupport, env$stateSupport, env$extendedStateSupport)[Qdx,]
 
