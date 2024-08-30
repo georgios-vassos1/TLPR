@@ -660,7 +660,7 @@ Eigen::MatrixXd computeEnvironmentCx(
                   for (int k2 = 0; k2 < nDdx; ++k2) {
                     std::vector<int> outflowIdx = outflowIndices[k2];
 
-                    // TODO: Update state for destinations based on current flow index
+                    // Get next state for destinations based on current flow index
                     for (int k2dx = 0; k2dx < nDestinations; ++k2dx) {
                       nextState[nOrigins + k2dx] = storageLimit + std::min<double>(std::max<double>(extendedStateSupport[stateIdx[nOrigins + k2dx]] - flowSupport[outflowIdx[k2dx]] + xJ[k2dx], -storageLimit), storageLimit);
                     }
