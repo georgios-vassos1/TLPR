@@ -4,16 +4,16 @@
 \alias{plotVsurface}
 \title{Plot State Value Surface}
 \usage{
-plotVsurface(VT, t, theta = 30, phi = 30)
+plotVsurface(env, V.t, t, theta = 30, phi = 30)
 }
 \arguments{
-\item{VT}{Numeric matrix. The value matrix to plot.}
-
 \item{t}{Integer. The time index for which the value surface is plotted.}
 
 \item{theta}{Numeric. The angle defining the viewing direction. Default is \code{30}.}
 
 \item{phi}{Numeric. The angle defining the viewing direction. Default is \code{30}.}
+
+\item{VT}{Numeric matrix. The value matrix to plot.}
 }
 \value{
 A 3D plot of the state value surface.

@@ -4,12 +4,12 @@
 \alias{plotQsurfaceForFixedEntry}
 \title{Plot Action Value Surface for Fixed Entry State}
 \usage{
-plotQsurfaceForFixedEntry(Qx, exit_state, t, theta = 66, phi = 30)
+plotQsurfaceForFixedEntry(env, Qx, entry_state, t, theta = 66, phi = 30)
 }
 \arguments{
 \item{Qx}{Numeric matrix. The action value matrix to plot.}
 
-\item{exit_state}{Integer. The fixed exit state to use in the plot.}
+\item{entry_state}{Integer. The fixed entry state to use in the plot.}
 
 \item{t}{Integer. The time index for which the action value surface is plotted.}
 
@@ -18,14 +18,14 @@ plotQsurfaceForFixedEntry(Qx, exit_state, t, theta = 66, phi = 30)
 \item{phi}{Numeric. The angle defining the viewing direction. Default is \code{30}.}
 }
 \value{
-A 3D plot of the action value surface for the fixed exit state.
+A 3D plot of the action value surface for the fixed entry state.
 }
 \description{
 This function creates a 3D plot of the action value surface at a given time \code{t} for a fixed entry state.
 The z-values are normalized and mapped to colors using a gradient palette.
 }
 \examples{
-# Assuming 'Qx' is a predefined action value matrix and 'exit_state' is defined
-plotQsurfaceForFixedEntry(Qx, exit_state = 2, t = 5)
+# Assuming 'Qx' is a predefined action value matrix and 'entry_state' is defined
+plotQsurfaceForFixedEntry(Qx, entry_state = 2, t = 5)
 
 }

@@ -50,58 +50,24 @@ create_gradient_palette <- function(n, norm_=NULL, low = "#80FFFF", high = "#FF8
 #' plotVsurface(VT, t = 5)
 #'
 #' @export
-plotVsurface <- function(VT, t, theta = 30, phi = 30) {
+plotVsurface <- function(env, V.t, t, theta = 30, phi = 30) {
   # Normalize the z-values to the range [0, 1] for mapping to colors
-  # norm_V <- (V[t,] - min(V[t,], na.rm = T)) / (max(V[t,], na.rm = T) - min(V[t,], na.rm = T))
-  norm_V <- (VT - min(VT, na.rm = T)) / (max(VT, na.rm = T) - min(VT, na.rm = T))
+  norm_V <- (V.t - min(V.t, na.rm = T)) / (max(V.t, na.rm = T) - min(V.t, na.rm = T))
 
   # Map normalized z-values to colors in the gradient palette
   vertex_colors <- create_gradient_palette(1000L, sort(norm_V))
 
-  # par(mfrow = c(1L,1L), mai = c(0.2, 1.5, 0.3, 1.5))
   # Create a 3D plot using plot3D
-  plot3D::persp3D(x = env$stateSupport, y = env$extendedStateSupport, z = t(Vx), col = vertex_colors, theta = theta, phi = phi,
-          xlab = "Entry State", ylab = "Exit State", zlab = "V", main = paste0("State Value Surface at t = ", t))
+  plot3D::persp3D(x = env$stateSupport, y = env$extendedStateSupport, z = t(V.t), col = vertex_colors, theta = theta, phi = phi,
+                  xlab = "Entry State", ylab = "Exit State", zlab = "V", main = paste0("State Value Surface at t = ", t))
 
   # Add contours to the surface
-  plot3D::contour3D(x = env$stateSupport, y = env$extendedStateSupport, z = t(Vx), colvar = t(Vx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
+  plot3D::contour3D(x = env$stateSupport, y = env$extendedStateSupport, z = t(V.t), colvar = t(V.t), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
 }
 
 #' Plot Action Value Surface for Fixed Entry State
 #'
 #' This function creates a 3D plot of the action value surface at a given time `t` for a fixed entry state.
-#' The z-values are normalized and mapped to colors using a gradient palette.
-#'
-#' @param Qx Numeric matrix. The action value matrix to plot.
-#' @param exit_state Integer. The fixed exit state to use in the plot.
-#' @param t Integer. The time index for which the action value surface is plotted.
-#' @param theta Numeric. The angle defining the viewing direction. Default is `66`.
-#' @param phi Numeric. The angle defining the viewing direction. Default is `30`.
-#'
-#' @return A 3D plot of the action value surface for the fixed exit state.
-#'
-#' @importFrom grDevices colorRampPalette
-#'
-#' @examples
-#' # Assuming 'Qx' is a predefined action value matrix and 'exit_state' is defined
-#' plotQsurfaceForFixedEntry(Qx, exit_state = 2, t = 5)
-#'
-#' @export
-plotQsurfaceForFixedEntry <- function(Qx, exit_state, t, theta = 66, phi = 30) {
-  ## Plot the action value surface at time t
-  norm_Q <- (Qx - min(Qx, na.rm = T)) / (max(Qx, na.rm = T) - min(Qx, na.rm = T))
-
-  vertex_colors <- create_gradient_palette(1000L, sort(norm_Q))
-
-  plot3D::persp3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), col = vertex_colors, theta = theta, phi = phi,
-          xlab = "Entry State", ylab = "Action", zlab = "Q", main = paste0("Action Value (Exit State: ", exit_state, ") at t = ", t))
-
-  plot3D::contour3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), colvar = t(Qx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
-}
-
-#' Plot Action Value Surface for Fixed Exit State
-#'
-#' This function creates a 3D plot of the action value surface at a given time `t` for a fixed exit state.
 #' The z-values are normalized and mapped to colors using a gradient palette.
 #'
 #' @param Qx Numeric matrix. The action value matrix to plot.
@@ -116,17 +82,49 @@ plotQsurfaceForFixedEntry <- function(Qx, exit_state, t, theta = 66, phi = 30) {
 #'
 #' @examples
 #' # Assuming 'Qx' is a predefined action value matrix and 'entry_state' is defined
-#' plotQsurfaceForFixedExit(Qx, entry_state = 3, t = 5)
+#' plotQsurfaceForFixedEntry(Qx, entry_state = 2, t = 5)
 #'
 #' @export
-plotQsurfaceForFixedExit <- function(Qx, entry_state, t, theta = 66, phi = 30) {
+plotQsurfaceForFixedEntry <- function(env, Qx, entry_state, t, theta = 66, phi = 30) {
+  ## Plot the action value surface at time t
+  norm_Q <- (Qx - min(Qx, na.rm = T)) / (max(Qx, na.rm = T) - min(Qx, na.rm = T))
+
+  vertex_colors <- create_gradient_palette(1000L, sort(norm_Q))
+
+  plot3D::persp3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), col = vertex_colors, theta = theta, phi = phi,
+          xlab = "Exit State", ylab = "Action", zlab = "Q", main = paste0("Action Value (Entry State: ", entry_state, ") at t = ", t))
+
+  plot3D::contour3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), colvar = t(Qx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
+}
+
+#' Plot Action Value Surface for Fixed Exit State
+#'
+#' This function creates a 3D plot of the action value surface at a given time `t` for a fixed exit state.
+#' The z-values are normalized and mapped to colors using a gradient palette.
+#'
+#' @param Qx Numeric matrix. The action value matrix to plot.
+#' @param exit_state Integer. The fixed exit state to use in the plot.
+#' @param t Integer. The time index for which the action value surface is plotted.
+#' @param theta Numeric. The angle defining the viewing direction. Default is `66`.
+#' @param phi Numeric. The angle defining the viewing direction. Default is `30`.
+#'
+#' @return A 3D plot of the action value surface for the fixed exit state.
+#'
+#' @importFrom grDevices colorRampPalette
+#'
+#' @examples
+#' # Assuming 'Qx' is a predefined action value matrix and 'exit_state' is defined
+#' plotQsurfaceForFixedExit(Qx, exit_state = 3, t = 5)
+#'
+#' @export
+plotQsurfaceForFixedExit <- function(env, Qx, exit_state, t, theta = 66, phi = 30) {
   ## Plot the action value surface at time t
   norm_Q <- (Qx - min(Qx, na.rm = T)) / (max(Qx, na.rm = T) - min(Qx, na.rm = T))
 
   vertex_colors <- create_gradient_palette(1000L, sort(norm_Q))
 
   plot3D::persp3D(x = env$stateSupport, y = env$actionSupport, z = t(Qx), col = vertex_colors, theta = theta, phi = phi,
-          xlab = "Entry State", ylab = "Action", zlab = "Q", main = paste0("Action Value (Entry State: ", entry_state, ") at t = ", t))
+          xlab = "Entry State", ylab = "Action", zlab = "Q", main = paste0("Action Value (Exit State: ", exit_state, ") at t = ", t))
 
   plot3D::contour3D(x = env$stateSupport, y = env$actionSupport, z = t(Qx), colvar = t(Qx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
 }
