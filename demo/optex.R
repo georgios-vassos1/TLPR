@@ -1,4 +1,3 @@
-# library(plot3D)
 library(TLPR)
 
 ## Dynamic program
@@ -112,12 +111,14 @@ dynamic_programming <- function(env, transit, varphidx, ...) {
   for (t in seq(env$tau,1L)) {
     print(t)
     k <- varphidx[t]
+
     for (i in seq(env$nSdx)) {
+      hold.t <- h.t(env, env$stateSupport[env$Sdx[i, env$I_]], env$extendedStateSupport[env$Sdx[i, env$nI + env$J_]], env$alpha)
+
       for (j in seq(env$nAdx)) {
         p <- (((t - 1L) * env$nSdx + (i - 1L)) * env$nAdx + (j - 1L)) * env$nScen
 
         cost.t   <- transit[p + k, 2L]
-        hold.t   <- h.t(env, env$stateSupport[env$Sdx[i, env$I_]], env$extendedStateSupport[env$Sdx[i, env$nI + env$J_]], env$alpha)
         reward.t <- - cost.t - hold.t
 
         # # Integrating stochasticity
@@ -162,7 +163,7 @@ for (k in varphidx) {
 dynamic_programming(env, transit, varphidx) |>
   list2env(envir = .GlobalEnv)
 
-S0  <- c(0L, 2L)
+S0  <- c(0L, 8L)
 N   <- 5000L
 sim <- numeric(N)
 for (idx in 1L:N) {
@@ -239,16 +240,26 @@ for (t_ in seq(env$tau + 1L)) {
 par(mfrow = c(1L,1L))
 
 # Value function surface
+Vx <- vector("list", env$tau)
+for (t in seq(env$tau)) {
+  cbind2(TLPR::CartesianProductX(env$stateSupport, env$extendedStateSupport), V[t,]) |>
+    as.data.frame() |>
+    reshape2::dcast(V2 ~ V1, value.var = "V3") |>
+    dplyr::select(-1L) |>
+    as.matrix() |>
+    `rownames<-`(seq(-env$R, env$R)) -> Vx[[t]]
+}
+
+par(mfrow = c(2L,2L), mai = c(0.2, 1.0, 0.3, 1.0))
+for (t in seq(env$tau)) {
+  plotVsurface(env, Vx[[t]], t, theta = 45.)
+}
+par(mfrow = c(1L,1L))
+
+# Heatmap of the value function at time t
 t <- 1L
 
-cbind2(TLPR::CartesianProductX(env$stateSupport, env$extendedStateSupport), V[t,]) |>
-  as.data.frame() |>
-  reshape2::dcast(V2 ~ V1, value.var = "V3") |>
-  dplyr::select(-1L) |>
-  as.matrix() |>
-  `rownames<-`(seq(-env$R, env$R)) -> Vx
-
-Vx |>
+Vx[[t]] |>
   heatmap(
     Rowv=NA, Colv=NA, 
     labRow = seq(-env$R,env$R), labCol = seq(0L,env$R), 
@@ -256,44 +267,72 @@ Vx |>
     xlab = "Entry State", ylab = "Exit State", main = paste0("State Value at t = ", t)
   )
 
-plotVsurface(Vx, t)
-
 # Action value surface for fixed exit state
-exit_state <- 0L
-Qdx <- get_Qdx_fixed_exit(env, exit_state)
+exit_states <- c(8L, 2L, 1L, -1L)
+# Qdx <- get_Qdx_fixed_exit(env, exit_state)
 # TLPR::CartesianProductX(env$actionSupport, env$stateSupport, env$extendedStateSupport)[Qdx,]
+Qx <- vector("list", env$tau)
+for (t in seq(env$tau)) {
+  exit_state <- exit_states[t]
 
+  Qdx <- get_Qdx_fixed_exit(env, exit_state)
+
+  cbind2(TLPR::CartesianProductX(env$actionSupport, env$stateSupport, env$extendedStateSupport)[Qdx,c(2L,1L)], Q[t, Qdx]) |>
+    as.data.frame() |>
+    reshape2::dcast(V2 ~ V1, value.var = "V3") |>
+    dplyr::select(-1L) |>
+    as.matrix() |>
+    `rownames<-`(seq(0L, env$R)) -> Qx[[t]]
+}
+
+par(mfrow = c(2L,2L), mai = c(0.2, 1.0, 0.3, 1.0))
+for (t in seq(env$tau)) {
+  plotQsurfaceForFixedExit(env, Qx[[t]], exit_states[t], t, theta = 30.0)
+}
+par(mfrow = c(1L,1L))
+
+# Heatmap
 t <- 1L
-
-cbind2(TLPR::CartesianProductX(env$actionSupport, env$stateSupport, env$extendedStateSupport)[Qdx,c(2L,1L)], Q[t, Qdx]) |>
-  as.data.frame() |>
-  reshape2::dcast(V2 ~ V1, value.var = "V3") |>
-  dplyr::select(-1L) |>
-  as.matrix() |>
-  `rownames<-`(seq(0L, env$R)) -> Qx
-
-Qx |>
-  heatmap(Rowv=NA, Colv=NA, labRow = seq(0L,env$R), labCol = seq(0,env$R), col = cm.colors(256L), scale="none")
-
-plotQsurfaceForFixedExit(Qx, exit_state, t)
+Qx[[t]] |>
+  heatmap(
+    Rowv=NA, Colv=NA, 
+    labRow = seq(0L,env$R), labCol = seq(0,env$R), 
+    col = cm.colors(256L), scale="none",
+    xlab = "Entry State", ylab = "Action", main = paste0("Action Value for Exit State = ", exit_states[t], ", at t = ", t)
+  )
 
 # Action value surface for fixed entry state
-entry_state <- 4L
-Qdx <- get_Qdx_fixed_entry(env, entry_state)
+entry_states <- c(0L, 6L, 7L, 1L)
+# Qdx <- get_Qdx_fixed_entry(env, entry_state)
 # TLPR::CartesianProductX(env$actionSupport, env$stateSupport, env$extendedStateSupport)[Qdx,]
+Qx <- vector("list", env$tau)
+for (t in seq(env$tau)) {
+  entry_state <- entry_states[t]
+  
+  Qdx <- get_Qdx_fixed_entry(env, entry_state)
+  
+  cbind2(TLPR::CartesianProductX(env$actionSupport, env$stateSupport, env$extendedStateSupport)[Qdx,c(3L,1L)], Q[t, Qdx]) |>
+    as.data.frame() |>
+    reshape2::dcast(V2 ~ V1, value.var = "V3") |>
+    dplyr::select(-1L) |>
+    as.matrix() |>
+    `rownames<-`(seq(0L, env$R)) -> Qx[[t]]
+}
 
-# matrix(Q[t, Qdx], ncol = env$nAdx)
-cbind2(TLPR::CartesianProductX(env$actionSupport, env$stateSupport, env$extendedStateSupport)[Qdx,c(3L,1L)], Q[t, Qdx]) |>
-  as.data.frame() |>
-  reshape2::dcast(V2 ~ V1, value.var = "V3") |>
-  dplyr::select(-1L) |>
-  as.matrix() |>
-  `rownames<-`(seq(0L, env$R)) -> Qx
+par(mfrow = c(2L,2L), mai = c(0.2, 1.0, 0.3, 1.0))
+for (t in seq(env$tau)) {
+  plotQsurfaceForFixedEntry(env, Qx[[t]], entry_states[t], t, theta = -45.0, phi = 30.0)
+}
+par(mfrow = c(1L,1L))
 
-Qx |>
-  heatmap(Rowv=NA, Colv=NA, labRow = seq(0L,env$R), labCol = seq(-env$R,env$R), col = cm.colors(256L), scale="none")
-
-plotQsurfaceForFixedEntry(Qx, entry_state, t, theta = 36.0, phi = 60.0)
+# Heatmap
+t <- 1L
+Qx[[t]] |>
+  heatmap(
+    Rowv=NA, Colv=NA, 
+    labRow = seq(0L,env$R), labCol = seq(-env$R,env$R), 
+    col = cm.colors(256L), scale="none",
+    xlab = "Exit State", ylab = "Action", main = paste0("Action Value for Entry State = ", entry_states[t], ", at t = ", t))
 
 ################################################################################################
 ## Useful indexing checks
