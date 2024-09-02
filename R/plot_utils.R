@@ -85,14 +85,14 @@ plotVsurface <- function(env, V.t, t, theta = 30, phi = 30) {
 #' plotQsurfaceForFixedEntry(Qx, entry_state = 2, t = 5)
 #'
 #' @export
-plotQsurfaceForFixedEntry <- function(env, Qx, entry_state, t, theta = 66, phi = 30) {
+plotQsurfaceForFixedEntry <- function(env, Qx, entry_state, t, theta = 66, phi = 30, zlab = 'Action Value') {
   ## Plot the action value surface at time t
   norm_Q <- (Qx - min(Qx, na.rm = T)) / (max(Qx, na.rm = T) - min(Qx, na.rm = T))
 
   vertex_colors <- create_gradient_palette(1000L, sort(norm_Q))
 
   plot3D::persp3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), col = vertex_colors, theta = theta, phi = phi,
-          xlab = "Exit State", ylab = "Action", zlab = "Q", main = paste0("Action Value (Entry State: ", entry_state, ") at t = ", t))
+          xlab = "Exit State", ylab = "Action", zlab = zlab, main = paste0("Action Value (Entry State: ", entry_state, ") at t = ", t))
 
   plot3D::contour3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), colvar = t(Qx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
 }
@@ -117,14 +117,14 @@ plotQsurfaceForFixedEntry <- function(env, Qx, entry_state, t, theta = 66, phi =
 #' plotQsurfaceForFixedExit(Qx, exit_state = 3, t = 5)
 #'
 #' @export
-plotQsurfaceForFixedExit <- function(env, Qx, exit_state, t, theta = 66, phi = 30) {
+plotQsurfaceForFixedExit <- function(env, Qx, exit_state, t, theta = 66, phi = 30, zlab = 'Action Value') {
   ## Plot the action value surface at time t
   norm_Q <- (Qx - min(Qx, na.rm = T)) / (max(Qx, na.rm = T) - min(Qx, na.rm = T))
 
   vertex_colors <- create_gradient_palette(1000L, sort(norm_Q))
 
   plot3D::persp3D(x = env$stateSupport, y = env$actionSupport, z = t(Qx), col = vertex_colors, theta = theta, phi = phi,
-          xlab = "Entry State", ylab = "Action", zlab = "Q", main = paste0("Action Value (Exit State: ", exit_state, ") at t = ", t))
+          xlab = "Entry State", ylab = "Action", zlab = zlab, main = paste0("Action Value (Exit State: ", exit_state, ") at t = ", t))
 
   plot3D::contour3D(x = env$stateSupport, y = env$actionSupport, z = t(Qx), colvar = t(Qx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
 }

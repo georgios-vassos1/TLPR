@@ -4,7 +4,15 @@
 \alias{plotQsurfaceForFixedEntry}
 \title{Plot Action Value Surface for Fixed Entry State}
 \usage{
-plotQsurfaceForFixedEntry(env, Qx, entry_state, t, theta = 66, phi = 30)
+plotQsurfaceForFixedEntry(
+  env,
+  Qx,
+  entry_state,
+  t,
+  theta = 66,
+  phi = 30,
+  zlab = "Action Value"
+)
 }
 \arguments{
 \item{Qx}{Numeric matrix. The action value matrix to plot.}

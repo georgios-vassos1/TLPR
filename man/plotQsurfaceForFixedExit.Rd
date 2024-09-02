@@ -4,7 +4,15 @@
 \alias{plotQsurfaceForFixedExit}
 \title{Plot Action Value Surface for Fixed Exit State}
 \usage{
-plotQsurfaceForFixedExit(env, Qx, exit_state, t, theta = 66, phi = 30)
+plotQsurfaceForFixedExit(
+  env,
+  Qx,
+  exit_state,
+  t,
+  theta = 66,
+  phi = 30,
+  zlab = "Action Value"
+)
 }
 \arguments{
 \item{Qx}{Numeric matrix. The action value matrix to plot.}
