@@ -95,8 +95,9 @@ computeEnvironmentRx <- function(env, model, t, start, end) {
                 pmin(pmax(env$extendedStateSupport[env$Sdx[i,env$nI+env$J_]] - d + xJ, -env$R), env$R) + env$R
               ) * env$stateKeys) + 1L
 
-            kdx <- ((k3 - 1L) * env$nQdx + (k2 - 1L)) * env$nDdx + k1
-            # kdx <- sum(c(Qdx[k1,] - 1L, Ddx[k2,] - 1L, Wdx[k3,] - 1L) * flowKeys) + 1L
+            # Uncertainty key encoding
+            # kdx <- ((k3 - 1L) * env$nQdx + (k2 - 1L)) * env$nDdx + k1 # (Only works for 1x1 instance)
+            kdx <- sum(c(env$Qdx[k1,] - 1L, env$Ddx[k2,] - 1L, env$Wdx[k3,] - 1L) * env$flowKeys) + 1L
 
             # Store into the transition matrix
             transit[((i - start) * env$nAdx + (j - 1L)) * env$nScen + kdx,] <- c(
