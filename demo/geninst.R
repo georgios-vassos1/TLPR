@@ -1,7 +1,7 @@
 library(TLPR)
 
 env <- new.env()
-generate_cssap(env, rate = 4.0, tau = 12L, nB = 5L, nCS =10L, nCO = 1L, nI = 1L, nJ = 1L)
+generate_cssap(env, rate = 4.0, tau = 4L, nB = 5L, nCS =10L, nCO = 1L, nI = 2L, nJ = 1L)
 
 # apply(env$Cb, 1L, function(x) x, simplify = "array") -> env$Cbx
 
@@ -55,7 +55,7 @@ with(
     nOmega <- (nQ ^ nI) * (nD ^ nJ) * (nW ^ nCO)
 
     stateKeys <- get_adjustment_weights(env)
-    flowKeys <- c(1L, nQ ^ (1L:(nI+nJ-1L)))
+    flowKeys <- c(1L, nQ ^ (1L:(nI+nJ)))
   }
 )
 
