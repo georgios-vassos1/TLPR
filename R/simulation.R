@@ -47,7 +47,7 @@ simulate_system <- function(env, pi_trans, pi_alloc, args, Q=NULL, D=NULL, ...) 
   cost <- matrix(NA, nrow = env$tau, ncol = npi)
   allocation <- matrix(NA, env$tau * env$nvars, ncol = npi)
   q    <- numeric(env$tau)
-  
+
   # Exogenous state variables
   if (is.null(Q)) {
     Q <- sample_exogenous_state(exog$Q$func, exog$Q$params)
@@ -55,26 +55,26 @@ simulate_system <- function(env, pi_trans, pi_alloc, args, Q=NULL, D=NULL, ...) 
   if (is.null(D)) {
     D <- sample_exogenous_state(exog$D$func, exog$D$params)
   }
-  
+
   # Simulation
   for (t in seq(env$tau)) {
     idx <- (t-1L)*env$nI+env$I_
     jdx <- (t-1L)*env$nJ+env$J_
-    
+
     # Transportation policy
     args[["capacity"]] <- sum(env$Cb[t,])+sum(env$Co[t,])
     args[["limit"]]    <- colSums(S.I[idx,,drop=F]+Q[idx])
-    
+
     q[t] <- do.call(pi_trans, args)
-    
+
     # Transition mechanism
     args[["obj_"]] <- c(env$CTb, env$CTo[t,])
     args[["n"]]    <- q[t]
     args[["x"]]    <- c(env$Cb[t,], env$Co[t,])
-    
+
     for (pdx in seq_along(pi_alloc)) {
       args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q[t])
-      
+
       # Optimize for policy index pdx
       optx <- do.call(pi_alloc[[pdx]], args)
       if (!is.null(optx[["status"]])) {
@@ -134,37 +134,37 @@ system_transition <- function(env, transit, pi, varphidx, init_s = NULL) {
   X.J  <- matrix(0.0, nrow = env$tau * env$nJ, ncol = 1L)
   cost <- matrix(NA,  nrow = env$tau + 1L, ncol = 1L)
   q    <- numeric(env$tau)
-  
+
   if (!is.null(init_s)) {
     S.I[1L,] <- init_s[env$I_]
     S.J[1L,] <- init_s[env$nI + env$J_]
   }
-  
+
   # Simulation loop
   for (t in seq(env$tau)) {
     idx <- (t - 1L) * env$nI + env$I_
     jdx <- (t - 1L) * env$nJ + env$J_
-    
+
     i <- sum(c(S.I[idx, 1L], env$R + S.J[jdx, 1L]) * env$stateKeys) + 1L
     j <- sample(seq(env$nAdx), 1L, prob = pi[t, (i - 1L) * env$nAdx + seq(env$nAdx)])
     k <- varphidx[t]
-    
+
     p <- (((t - 1L) * env$nSdx + (i - 1L)) * env$nAdx + (j - 1L)) * env$nScen + k
-    
+
     q[t] <- env$actionSupport[j]
     cost[t] <- transit[p, 2L] + h.t(env, S.I[idx, 1L], S.J[jdx, 1L], env$alpha)
     next_i  <- transit[p, 1L]
-    
+
     S.I[env$nI + idx, 1L] <- env$stateSupport[env$Sdx[next_i, env$I_]]
     S.J[env$nJ + jdx, 1L] <- env$extendedStateSupport[env$Sdx[next_i, env$nI + env$J_]]
-    
+
     X.I[idx, 1L] <- S.I[idx, 1L] + env$Q$vals[env$scndx[k, env$I_]] - S.I[idx + env$nI, 1L]
     X.J[jdx, 1L] <- S.J[jdx + env$nJ, 1L] - S.J[jdx, 1L] + env$D$vals[env$scndx[k, env$nI + env$J_]]
   }
   idx <- t * env$nI + env$I_
   jdx <- t * env$nJ + env$J_
   cost[t+1L] <- c(cbind(S.I[idx, 1L], pmax(S.J[jdx, 1L], 0L), - pmin(S.J[jdx, 1L], 0L)) %*% env$alpha)
-  
+
   list(
     "S.I" = S.I,
     "S.J" = S.J,
