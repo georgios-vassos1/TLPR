@@ -46,8 +46,8 @@ dp_config <- function(env) {
     replicate(env$nJ,  seq(env$nD), simplify = FALSE),
     replicate(env$nCO, seq(env$nW), simplify = FALSE)))
 
+  # env$scnpb <- apply(env$scndx, 1L, function(x) env$Q$prob[x[1L]] * env$Q$prob[x[2L]] * env$D$prob[x[3L]] * env$W$prob[x[4L]]) # Only for 1x1 instance
   env$scnpb <- apply(env$scndx, 1L, function(x) prod(env$Q$prob[x[seq(env$nI)]], env$D$prob[x[env$nI + seq(env$nJ)]], env$W$prob[x[env$nI + env$nJ + 1L]]))
-  # env$scnpb <- apply(env$scndx, 1L, function(x) env$Q$prob[x[1L]] * env$Q$prob[x[2L]] * env$D$prob[x[3L]] * env$W$prob[x[4L]])
 
   env$Qdx <- do.call(TLPR::CartesianProductX, replicate(env$nI,  seq(env$nQ), simplify = FALSE))
   env$Ddx <- do.call(TLPR::CartesianProductX, replicate(env$nJ,  seq(env$nD), simplify = FALSE))
@@ -105,8 +105,8 @@ dynamic_programming <- function(env, transit, varphidx, ...) {
   # Terminal state values
   V[env$tau+1L,] <- - c(
     cbind(apply(env$Sdx[, env$I_, drop=F], 2L, function(sdx) env$stateSupport[sdx]), 
-          pmax(env$extendedStateSupport[env$Sdx[, env$nI + env$J_]], 0L), 
-        - pmin(env$extendedStateSupport[env$Sdx[, env$nI + env$J_]], 0L)) %*% c(env$alpha))
+          apply(env$Sdx[, env$nI + env$J_, drop=F], 2L, function(sdx) pmax(env$extendedStateSupport[sdx], 0L)), 
+        - apply(env$Sdx[, env$nI + env$J_, drop=F], 2L, function(sdx) pmin(env$extendedStateSupport[sdx], 0L))) %*% c(env$alpha))
 
   ## Dynamic Programming Loop
   for (t in seq(env$tau,1L)) {
@@ -158,13 +158,13 @@ dynamic_programming <- function(env, transit, varphidx, ...) {
 # Fix scenario, e.g., c(17L, 15L, 17L, 14L), c(8L, 16L, 12L, 10L), c(5L,  8L,  8L, 11L), c(18L, 8L, 8L, 1L), c(9L, 18L, 7L, 10L)
 (varphidx <- sample(nrow(env$scndx), env$tau, replace = TRUE, prob = env$scnpb))
 for (k in varphidx) {
-  print(c(env$Q$vals[env$scndx[k,env$I_]], env$D$vals[env$scndx[k,env$nI+env$J_]], env$W$vals[env$scndx[k,env$nI+env$J_+1L]]))
+  print(c(env$Q$vals[env$scndx[k,env$I_]], env$D$vals[env$scndx[k,env$nI+env$J_]], env$W$vals[env$scndx[k,env$nI+env$nJ+1L]]))
 }
 
 dynamic_programming(env, transit, varphidx) |>
   list2env(envir = .GlobalEnv)
 
-S0  <- c(0L, 8L)
+S0  <- c(0L, 4L, 4L)
 N   <- 5000L
 sim <- numeric(N)
 for (idx in 1L:N) {

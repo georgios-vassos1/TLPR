@@ -136,8 +136,8 @@ system_transition <- function(env, transit, pi, varphidx, init_s = NULL) {
   q    <- numeric(env$tau)
 
   if (!is.null(init_s)) {
-    S.I[1L,] <- init_s[env$I_]
-    S.J[1L,] <- init_s[env$nI + env$J_]
+    S.I[env$I_,] <- init_s[env$I_]
+    S.J[env$J_,] <- init_s[env$nI + env$J_]
   }
 
   # Simulation loop
@@ -163,7 +163,7 @@ system_transition <- function(env, transit, pi, varphidx, init_s = NULL) {
   }
   idx <- t * env$nI + env$I_
   jdx <- t * env$nJ + env$J_
-  cost[t+1L] <- c(cbind(S.I[idx, 1L], pmax(S.J[jdx, 1L], 0L), - pmin(S.J[jdx, 1L], 0L)) %*% env$alpha)
+  cost[t + 1L] <- sum(c(S.I[idx, 1L], pmax(S.J[jdx, 1L], 0L), - pmin(S.J[jdx, 1L], 0L)) * env$alpha)
 
   list(
     "S.I" = S.I,
