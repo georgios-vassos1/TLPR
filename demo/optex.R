@@ -13,8 +13,8 @@ jsonlite::fromJSON(json_path) |>
 # Scale up the value of the instance (experiment)
 env$alpha <- 3.0 * env$alpha
 # Transformation is needed
-env$from_i <- list(c(env$from_i))
-env$to_j   <- list(c(env$to_j))
+env$from_i <- apply(t(env$from_i), 2L, as.integer, simplify = F) # list(c(env$from_i))
+env$to_j   <- apply(t(env$to_j),   2L, as.integer, simplify = F) # list(c(env$to_j))
 # do.call(data.table::CJ, c(replicate(env$nJ, seq(nSJ), simplify = F), replicate(env$nI, seq(nSI), simplify = F)))[,c(2L,1L)]
 
 model <- create_model(env)
@@ -46,7 +46,8 @@ dp_config <- function(env) {
     replicate(env$nJ,  seq(env$nD), simplify = FALSE),
     replicate(env$nCO, seq(env$nW), simplify = FALSE)))
 
-  env$scnpb <- apply(env$scndx, 1L, function(x) env$Q$prob[x[1L]] * env$D$prob[x[2L]] * env$W$prob[x[3L]])
+  env$scnpb <- apply(env$scndx, 1L, function(x) prod(env$Q$prob[x[seq(env$nI)]], env$D$prob[x[env$nI + seq(env$nJ)]], env$W$prob[x[env$nI + env$nJ + 1L]]))
+  # env$scnpb <- apply(env$scndx, 1L, function(x) env$Q$prob[x[1L]] * env$Q$prob[x[2L]] * env$D$prob[x[3L]] * env$W$prob[x[4L]])
 
   env$Qdx <- do.call(TLPR::CartesianProductX, replicate(env$nI,  seq(env$nQ), simplify = FALSE))
   env$Ddx <- do.call(TLPR::CartesianProductX, replicate(env$nJ,  seq(env$nD), simplify = FALSE))
@@ -103,9 +104,9 @@ dynamic_programming <- function(env, transit, varphidx, ...) {
 
   # Terminal state values
   V[env$tau+1L,] <- - c(
-    cbind(env$stateSupport[env$Sdx[,1L]], 
-          pmax(env$extendedStateSupport[env$Sdx[,2L]], 0L), 
-        - pmin(env$extendedStateSupport[env$Sdx[,2L]], 0L)) %*% c(env$alpha))
+    cbind(apply(env$Sdx[, env$I_, drop=F], 2L, function(sdx) env$stateSupport[sdx]), 
+          pmax(env$extendedStateSupport[env$Sdx[, env$nI + env$J_]], 0L), 
+        - pmin(env$extendedStateSupport[env$Sdx[, env$nI + env$J_]], 0L)) %*% c(env$alpha))
 
   ## Dynamic Programming Loop
   for (t in seq(env$tau,1L)) {
