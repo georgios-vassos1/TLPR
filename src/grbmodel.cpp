@@ -606,11 +606,16 @@ Eigen::MatrixXd computeEnvironmentCx(
               model.update();
               // printConstraints(model);
 
+              // Uncertainty index
+              std::vector<int> fdx(nOrigins + nDestinations + nSpotCarriers, 0.0);
+
+              // Loop over support of uncertainty
               for (int k3 = 0; k3 < nWdx; ++k3) {
                 const auto& spotRateIdx = spotRateIndices[k3];
 
                 std::vector<double> spotRatesTmp(nSpotCarriers, 0.0);
                 for (int k3dx = 0; k3dx < nSpotCarriers; ++k3dx) {
+                  fdx[nOrigins + nDestinations + k3dx] = spotRateIdx[k3dx];
                   spotRatesTmp[k3dx] = spotRateSupport[spotRateIdx[k3dx]];
                 }
                 updateSpotRates(model, transport, spotRatesTmp, nStrategicCarriers, nSpotCarriers, nLanes);
@@ -653,6 +658,7 @@ Eigen::MatrixXd computeEnvironmentCx(
                   std::vector<double> nextState(nOrigins + nDestinations, 0.0);
 
                   for (int k1dx = 0; k1dx < nOrigins; ++k1dx) {
+                    fdx[k1dx] = inflowIdx[k1dx];
                     nextState[k1dx] = std::max<double>(std::min<double>(stateSupport[stateIdx[k1dx]] + flowSupport[inflowIdx[k1dx]] - xI[k1dx], storageLimit), 0.0);
                   }
 
@@ -662,12 +668,15 @@ Eigen::MatrixXd computeEnvironmentCx(
 
                     // Get next state for destinations based on current flow index
                     for (int k2dx = 0; k2dx < nDestinations; ++k2dx) {
+                      fdx[nOrigins + k2dx] = outflowIdx[k2dx];
                       nextState[nOrigins + k2dx] = storageLimit + std::min<double>(std::max<double>(extendedStateSupport[stateIdx[nOrigins + k2dx]] - flowSupport[outflowIdx[k2dx]] + xJ[k2dx], -storageLimit), storageLimit);
                     }
                     nextStateIdx[k2] = std::inner_product(nextState.begin(), nextState.end(), stateKeys.begin(), 0);
 
                     // Store (newStateIdx, objective, stateIdx, actionIdx, scenarioIdx) in transit matrix
-                    int kdx = (k3 * nQdx + k2) * nDdx + k1;
+                    // int kdx = (k3 * nQdx + k2) * nDdx + k1;
+                    int kdx = std::inner_product(fdx.begin(), fdx.end(), flowKeys.begin(), 0);
+
                     int p = ((t * nSdx + i) * nAdx + j) * nQdx * nDdx * nWdx + kdx;
 
                     transit(p, 0) = nextStateIdx[k2] + 1;
