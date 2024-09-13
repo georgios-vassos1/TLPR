@@ -164,7 +164,7 @@ for (k in varphidx) {
 dynamic_programming(env, transit, varphidx) |>
   list2env(envir = .GlobalEnv)
 
-S0  <- c(0L, 4L, 4L)
+S0  <- c(0L, 8L) # c(0L, 4L, 4L)
 N   <- 5000L
 sim <- numeric(N)
 for (idx in 1L:N) {
