@@ -1,10 +1,5 @@
 library(TLPR)
 
-devtools::clean_dll("~/drayage/TLPR")
-devtools::build("~/drayage/TLPR")
-devtools::document("~/drayage/TLPR")
-devtools::install("~/drayage/TLPR", reload = F)
-
 nSdx <- 100L
 nAdx <-  5L
 nUdx <-  80L
@@ -36,11 +31,11 @@ microbenchmark::microbenchmark(
 ## Dynamic program
 env <- new.env()
 
-json_path <- "~/drayage/TLPR/src/instances/instance1x1_12_001.json"
+json_path <- "~/drayage/TLPR/src/instances/instance2x2_4_001.json"
 jsonlite::fromJSON(json_path) |>
   list2env(envir = env)
 
-TLPR::computeEnvironmentCx(json_path, seq(0L, env$nSI), env$Q$vals, numThreads = 8L) -> resultCx
+TLPR::computeEnvironmentCx(json_path, 0L, seq(0L, env$nSI - 1L), env$Q$vals, numThreads = 8L) -> resultCx
 
 args <- replicate(env$nI, env$Q$vals, simplify = FALSE)
 do.call(TLPR::CartesianProduct, args) |> nrow() -> nInflow
