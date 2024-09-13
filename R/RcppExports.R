@@ -15,20 +15,62 @@ CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
 
 #' @useDynLib TLPR
 #' @export
+computeEnvironmentCx <- function(jsonFile, t, stateSupport, flowSupport, numThreads = 8L) {
+    .Call('_TLPR_computeEnvironmentCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, numThreads)
+}
+
+#' @useDynLib TLPR
+#' @export
+createGRBmodel <- function() {
+    .Call('_TLPR_createGRBmodel', PACKAGE = 'TLPR')
+}
+
+#' @useDynLib TLPR
+#' @export
+createTransportVarsCx <- function(model_ptr, n, winnerKeys, winners, bids, lanes, contractRates, spotRates, nSpotCarriers, nLanes) {
+    .Call('_TLPR_createTransportVarsCx', PACKAGE = 'TLPR', model_ptr, n, winnerKeys, winners, bids, lanes, contractRates, spotRates, nSpotCarriers, nLanes)
+}
+
+#' @useDynLib TLPR
+#' @export
+addCapacityConstraintsCx <- function(model_ptr, transport_ptr, winnerKeys, winners, bids, carrierIdx, strategicCapacities, spotCapacities, nSpotSources, nLanes) {
+    invisible(.Call('_TLPR_addCapacityConstraintsCx', PACKAGE = 'TLPR', model_ptr, transport_ptr, winnerKeys, winners, bids, carrierIdx, strategicCapacities, spotCapacities, nSpotSources, nLanes))
+}
+
+#' @useDynLib TLPR
+#' @export
+addStorageLimitConstraintsCx <- function(model_ptr, transport_ptr, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits) {
+    invisible(.Call('_TLPR_addStorageLimitConstraintsCx', PACKAGE = 'TLPR', model_ptr, transport_ptr, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits))
+}
+
+#' @useDynLib TLPR
+#' @export
+addVolumeConstraintCx <- function(model_ptr, transport_ptr, n, At) {
+    invisible(.Call('_TLPR_addVolumeConstraintCx', PACKAGE = 'TLPR', model_ptr, transport_ptr, n, At))
+}
+
+#' @useDynLib TLPR
+#' @export
+printObjectiveVectorCx <- function(model_ptr) {
+    invisible(.Call('_TLPR_printObjectiveVectorCx', PACKAGE = 'TLPR', model_ptr))
+}
+
+#' @useDynLib TLPR
+#' @export
+printConstraintsCx <- function(model_ptr) {
+    invisible(.Call('_TLPR_printConstraintsCx', PACKAGE = 'TLPR', model_ptr))
+}
+
+#' @useDynLib TLPR
+#' @export
+optimizeModelFromJSON <- function(jsonFile, t, spotRates, storage_limits, volume) {
+    .Call('_TLPR_optimizeModelFromJSON', PACKAGE = 'TLPR', jsonFile, t, spotRates, storage_limits, volume)
+}
+
+#' @useDynLib TLPR
+#' @export
 updateStateIdx <- function(stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKeys, nOrigins, nDestinations) {
     .Call('_TLPR_updateStateIdx', PACKAGE = 'TLPR', stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKeys, nOrigins, nDestinations)
-}
-
-#' @useDynLib TLPR
-#' @export
-computeEnvironmentCx <- function(jsonFile, stateSupport, flowSupport, numThreads = 8L) {
-    .Call('_TLPR_computeEnvironmentCx', PACKAGE = 'TLPR', jsonFile, stateSupport, flowSupport, numThreads)
-}
-
-#' @useDynLib TLPR
-#' @export
-optimizeModelFromJSON <- function(jsonFile) {
-    .Call('_TLPR_optimizeModelFromJSON', PACKAGE = 'TLPR', jsonFile)
 }
 
 #' @useDynLib TLPR

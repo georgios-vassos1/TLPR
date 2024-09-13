@@ -46,6 +46,137 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// computeEnvironmentCx
+Eigen::MatrixXd computeEnvironmentCx(const std::string jsonFile, const int& t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, int numThreads);
+RcppExport SEXP _TLPR_computeEnvironmentCx(SEXP jsonFileSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP numThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string >::type jsonFile(jsonFileSEXP);
+    Rcpp::traits::input_parameter< const int& >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeEnvironmentCx(jsonFile, t, stateSupport, flowSupport, numThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// createGRBmodel
+SEXP createGRBmodel();
+RcppExport SEXP _TLPR_createGRBmodel() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(createGRBmodel());
+    return rcpp_result_gen;
+END_RCPP
+}
+// createTransportVarsCx
+SEXP createTransportVarsCx(SEXP model_ptr, const int& n, const std::vector<std::string>& winnerKeys, const Rcpp::List& winners, const std::vector<std::vector<int>>& bids, const std::vector<std::vector<int>>& lanes, const Rcpp::List& contractRates, const std::vector<double>& spotRates, const int& nSpotCarriers, const int& nLanes);
+RcppExport SEXP _TLPR_createTransportVarsCx(SEXP model_ptrSEXP, SEXP nSEXP, SEXP winnerKeysSEXP, SEXP winnersSEXP, SEXP bidsSEXP, SEXP lanesSEXP, SEXP contractRatesSEXP, SEXP spotRatesSEXP, SEXP nSpotCarriersSEXP, SEXP nLanesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_ptr(model_ptrSEXP);
+    Rcpp::traits::input_parameter< const int& >::type n(nSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::string>& >::type winnerKeys(winnerKeysSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type winners(winnersSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::vector<int>>& >::type bids(bidsSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::vector<int>>& >::type lanes(lanesSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type contractRates(contractRatesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type spotRates(spotRatesSEXP);
+    Rcpp::traits::input_parameter< const int& >::type nSpotCarriers(nSpotCarriersSEXP);
+    Rcpp::traits::input_parameter< const int& >::type nLanes(nLanesSEXP);
+    rcpp_result_gen = Rcpp::wrap(createTransportVarsCx(model_ptr, n, winnerKeys, winners, bids, lanes, contractRates, spotRates, nSpotCarriers, nLanes));
+    return rcpp_result_gen;
+END_RCPP
+}
+// addCapacityConstraintsCx
+void addCapacityConstraintsCx(SEXP model_ptr, SEXP transport_ptr, const std::vector<std::string>& winnerKeys, const Rcpp::List& winners, const std::vector<std::vector<int>>& bids, const Rcpp::List& carrierIdx, const std::vector<int>& strategicCapacities, const std::vector<int>& spotCapacities, const int& nSpotSources, const int& nLanes);
+RcppExport SEXP _TLPR_addCapacityConstraintsCx(SEXP model_ptrSEXP, SEXP transport_ptrSEXP, SEXP winnerKeysSEXP, SEXP winnersSEXP, SEXP bidsSEXP, SEXP carrierIdxSEXP, SEXP strategicCapacitiesSEXP, SEXP spotCapacitiesSEXP, SEXP nSpotSourcesSEXP, SEXP nLanesSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_ptr(model_ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type transport_ptr(transport_ptrSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::string>& >::type winnerKeys(winnerKeysSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type winners(winnersSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::vector<int>>& >::type bids(bidsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type carrierIdx(carrierIdxSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type strategicCapacities(strategicCapacitiesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type spotCapacities(spotCapacitiesSEXP);
+    Rcpp::traits::input_parameter< const int& >::type nSpotSources(nSpotSourcesSEXP);
+    Rcpp::traits::input_parameter< const int& >::type nLanes(nLanesSEXP);
+    addCapacityConstraintsCx(model_ptr, transport_ptr, winnerKeys, winners, bids, carrierIdx, strategicCapacities, spotCapacities, nSpotSources, nLanes);
+    return R_NilValue;
+END_RCPP
+}
+// addStorageLimitConstraintsCx
+void addStorageLimitConstraintsCx(SEXP model_ptr, SEXP transport_ptr, const std::vector<std::string>& winnerKeys, const Rcpp::List& winners, const std::vector<std::vector<int>>& bids, const std::vector<std::vector<int>>& lanes, const int& nSpotCarriers, const int& nLanes, const std::vector<int>& nWarehouses, const std::vector<int>& limits);
+RcppExport SEXP _TLPR_addStorageLimitConstraintsCx(SEXP model_ptrSEXP, SEXP transport_ptrSEXP, SEXP winnerKeysSEXP, SEXP winnersSEXP, SEXP bidsSEXP, SEXP lanesSEXP, SEXP nSpotCarriersSEXP, SEXP nLanesSEXP, SEXP nWarehousesSEXP, SEXP limitsSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_ptr(model_ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type transport_ptr(transport_ptrSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::string>& >::type winnerKeys(winnerKeysSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type winners(winnersSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::vector<int>>& >::type bids(bidsSEXP);
+    Rcpp::traits::input_parameter< const std::vector<std::vector<int>>& >::type lanes(lanesSEXP);
+    Rcpp::traits::input_parameter< const int& >::type nSpotCarriers(nSpotCarriersSEXP);
+    Rcpp::traits::input_parameter< const int& >::type nLanes(nLanesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type nWarehouses(nWarehousesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type limits(limitsSEXP);
+    addStorageLimitConstraintsCx(model_ptr, transport_ptr, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits);
+    return R_NilValue;
+END_RCPP
+}
+// addVolumeConstraintCx
+void addVolumeConstraintCx(SEXP model_ptr, SEXP transport_ptr, const int& n, const double& At);
+RcppExport SEXP _TLPR_addVolumeConstraintCx(SEXP model_ptrSEXP, SEXP transport_ptrSEXP, SEXP nSEXP, SEXP AtSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_ptr(model_ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type transport_ptr(transport_ptrSEXP);
+    Rcpp::traits::input_parameter< const int& >::type n(nSEXP);
+    Rcpp::traits::input_parameter< const double& >::type At(AtSEXP);
+    addVolumeConstraintCx(model_ptr, transport_ptr, n, At);
+    return R_NilValue;
+END_RCPP
+}
+// printObjectiveVectorCx
+void printObjectiveVectorCx(SEXP model_ptr);
+RcppExport SEXP _TLPR_printObjectiveVectorCx(SEXP model_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_ptr(model_ptrSEXP);
+    printObjectiveVectorCx(model_ptr);
+    return R_NilValue;
+END_RCPP
+}
+// printConstraintsCx
+void printConstraintsCx(SEXP model_ptr);
+RcppExport SEXP _TLPR_printConstraintsCx(SEXP model_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_ptr(model_ptrSEXP);
+    printConstraintsCx(model_ptr);
+    return R_NilValue;
+END_RCPP
+}
+// optimizeModelFromJSON
+Rcpp::List optimizeModelFromJSON(std::string jsonFile, const int& t, const std::vector<double>& spotRates, const std::vector<int>& storage_limits, const int& volume);
+RcppExport SEXP _TLPR_optimizeModelFromJSON(SEXP jsonFileSEXP, SEXP tSEXP, SEXP spotRatesSEXP, SEXP storage_limitsSEXP, SEXP volumeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type jsonFile(jsonFileSEXP);
+    Rcpp::traits::input_parameter< const int& >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type spotRates(spotRatesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type storage_limits(storage_limitsSEXP);
+    Rcpp::traits::input_parameter< const int& >::type volume(volumeSEXP);
+    rcpp_result_gen = Rcpp::wrap(optimizeModelFromJSON(jsonFile, t, spotRates, storage_limits, volume));
+    return rcpp_result_gen;
+END_RCPP
+}
 // updateStateIdx
 std::vector<int> updateStateIdx(const std::vector<int>& stateIdx, const std::vector<int>& inflowIdx, const std::vector<std::vector<int>>& outflowIndices, const std::vector<double>& stateSupport, const std::vector<double>& extendedStateSupport, const std::vector<double>& flowSupport, const std::vector<double>& xI, const std::vector<double>& xJ, const double& storageLimit, const std::vector<int>& stateKeys, const int& nOrigins, const int& nDestinations);
 RcppExport SEXP _TLPR_updateStateIdx(SEXP stateIdxSEXP, SEXP inflowIdxSEXP, SEXP outflowIndicesSEXP, SEXP stateSupportSEXP, SEXP extendedStateSupportSEXP, SEXP flowSupportSEXP, SEXP xISEXP, SEXP xJSEXP, SEXP storageLimitSEXP, SEXP stateKeysSEXP, SEXP nOriginsSEXP, SEXP nDestinationsSEXP) {
@@ -65,31 +196,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int& >::type nOrigins(nOriginsSEXP);
     Rcpp::traits::input_parameter< const int& >::type nDestinations(nDestinationsSEXP);
     rcpp_result_gen = Rcpp::wrap(updateStateIdx(stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKeys, nOrigins, nDestinations));
-    return rcpp_result_gen;
-END_RCPP
-}
-// computeEnvironmentCx
-Eigen::MatrixXd computeEnvironmentCx(const std::string jsonFile, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, int numThreads);
-RcppExport SEXP _TLPR_computeEnvironmentCx(SEXP jsonFileSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP numThreadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::string >::type jsonFile(jsonFileSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
-    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
-    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(computeEnvironmentCx(jsonFile, stateSupport, flowSupport, numThreads));
-    return rcpp_result_gen;
-END_RCPP
-}
-// optimizeModelFromJSON
-Rcpp::List optimizeModelFromJSON(std::string jsonFile);
-RcppExport SEXP _TLPR_optimizeModelFromJSON(SEXP jsonFileSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::string >::type jsonFile(jsonFileSEXP);
-    rcpp_result_gen = Rcpp::wrap(optimizeModelFromJSON(jsonFile));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -123,9 +229,16 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
+    {"_TLPR_computeEnvironmentCx", (DL_FUNC) &_TLPR_computeEnvironmentCx, 5},
+    {"_TLPR_createGRBmodel", (DL_FUNC) &_TLPR_createGRBmodel, 0},
+    {"_TLPR_createTransportVarsCx", (DL_FUNC) &_TLPR_createTransportVarsCx, 10},
+    {"_TLPR_addCapacityConstraintsCx", (DL_FUNC) &_TLPR_addCapacityConstraintsCx, 10},
+    {"_TLPR_addStorageLimitConstraintsCx", (DL_FUNC) &_TLPR_addStorageLimitConstraintsCx, 10},
+    {"_TLPR_addVolumeConstraintCx", (DL_FUNC) &_TLPR_addVolumeConstraintCx, 4},
+    {"_TLPR_printObjectiveVectorCx", (DL_FUNC) &_TLPR_printObjectiveVectorCx, 1},
+    {"_TLPR_printConstraintsCx", (DL_FUNC) &_TLPR_printConstraintsCx, 1},
+    {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 5},
     {"_TLPR_updateStateIdx", (DL_FUNC) &_TLPR_updateStateIdx, 12},
-    {"_TLPR_computeEnvironmentCx", (DL_FUNC) &_TLPR_computeEnvironmentCx, 4},
-    {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 1},
     {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 4},
     {"_TLPR_convertListToMapTest", (DL_FUNC) &_TLPR_convertListToMapTest, 2},
     {NULL, NULL, 0}
