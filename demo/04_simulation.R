@@ -57,12 +57,21 @@ args <- list(
   edx   = nrow(model$A)
 )
 
+exog <- list(
+  Q = list(func   = sample,
+           params = list(x = env$Q$vals, size = env$tau * env$nI,
+                         prob = env$Q$prob, replace = TRUE)),
+  D = list(func   = sample,
+           params = list(x = env$D$vals, size = env$tau * env$nJ,
+                         prob = env$D$prob, replace = TRUE))
+)
+
 ## -- N Monte Carlo simulations --------------------------------
 N     <- 50L
 costs <- matrix(NA, nrow = env$tau, ncol = npi * N)
 i     <- 1L
 while (i <= N) {
-  result <- simulate_system(env, random_volume, policy, args)
+  result <- simulate_system(env, random_volume, policy, args, exog = exog)
   if (isTRUE(result$status)) {
     costs[, (i - 1L) * npi + seq(npi)] <- result$cost
     i <- i + 1L
