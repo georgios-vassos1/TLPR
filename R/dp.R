@@ -362,3 +362,55 @@ compute_environment <- function(env, env.dp, t, start, end, scenaria, weights, F
   }
   transit
 }
+
+#' Rolling DP via C++ Bellman Updates
+#'
+#' Memory-efficient backward induction using \code{bellmanUpdateCx} for each
+#' period. Avoids materialising the full \code{tau * nSdx * nAdx * nScen x 6}
+#' transit table; working memory is O(nSdx * nAdx) per period.
+#'
+#' @param env Environment produced by \code{dp_config} (must have \code{I_},
+#'   \code{J_}, \code{Sdx}, \code{stateSupport}, \code{extendedStateSupport},
+#'   \code{scnpb}, \code{alpha}, \code{nSdx}, \code{nAdx}, \code{tau}).
+#' @param jsonFile Path to the instance JSON file (passed to \code{bellmanUpdateCx}).
+#' @param numThreads Number of OMP threads for \code{bellmanUpdateCx}. Default 8.
+#' @return A named list with elements \code{V}, \code{Q}, \code{pi_star},
+#'   \code{pi_rand} — identical structure to \code{dynamic_programming}.
+#' @export
+rolling_dp_cx <- function(env, jsonFile, numThreads = 8L) {
+
+  V       <- matrix(NA_real_, nrow = env$tau + 1L, ncol = env$nSdx)
+  Q       <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
+  pi_star <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
+  pi_rand <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
+
+  # Terminal value — identical to dynamic_programming
+  V[env$tau + 1L, ] <- -c(
+    cbind(
+      apply(env$Sdx[, env$I_,          drop = FALSE], 2L,
+            function(sdx) env$stateSupport[sdx]),
+      apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L,
+            function(sdx) pmax(env$extendedStateSupport[sdx], 0L)),
+     -apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L,
+            function(sdx) pmin(env$extendedStateSupport[sdx], 0L))
+    ) %*% c(env$alpha))
+
+  for (t in seq(env$tau, 1L)) {
+    step <- bellmanUpdateCx(
+      jsonFile     = jsonFile,
+      t            = t - 1L,              # 0-based for C++
+      stateSupport = as.double(env$stateSupport),
+      flowSupport  = as.double(env$Q$vals),
+      scnpb        = env$scnpb,
+      alpha        = env$alpha,
+      V_next       = V[t + 1L, ],
+      numThreads   = numThreads
+    )
+    V      [t, ] <- step$V_t
+    Q      [t, ] <- step$Q_t
+    pi_star[t, ] <- step$pi_star_t
+    pi_rand[t, ] <- step$pi_rand_t
+  }
+
+  list("V" = V, "Q" = Q, "pi_star" = pi_star, "pi_rand" = pi_rand)
+}

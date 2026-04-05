@@ -124,7 +124,7 @@ multiperiod_expansion <- function(env, Q, D, A, obj, rhs, sns) {
   obj.tau <- numeric(ncol(A.tau))
   rhs.tau <- numeric(nrow(A.tau))
 
-  obj.tau[seq(ncol(A) - offset)] <- c(env$alpha, env$CTb, env$CTo[1L, ])
+  obj.tau[seq(ncol(A) - offset)] <- obj[seq(ncol(A) - offset)]
   rhs.tau[seq(nrow(A))] <- rhs
   for (t in seq(2L, env$tau)) {
     rdx <- (t - 1L) * nrow(A) + seq(nrow(A))

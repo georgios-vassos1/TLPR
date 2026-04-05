@@ -61,8 +61,9 @@ simulate_winners <- function(nB, nCS) {
 input_configuration <- function(env, ...) {
   args <- list(...)
   if (!is.null(args[["config"]])) {
-    for (key in names(args[["config"]])) {
-      assign(key, args[["config"]][[key]], envir = env)
+    cfg <- args[["config"]]
+    for (key in names(cfg)) {
+      assign(key, cfg[[key]], envir = env)
     }
   } else {
     env$tau <- ifelse(is.null(args[["tau"]]), 12L, args[["tau"]])
@@ -93,14 +94,15 @@ simulate_auction <- function(env, ...) {
   env$winner <- simulate_winners(env$nB, env$nCS)
 }
 
-#' Initialize
-#' 
-#' Initializes the environment.
-#' 
+#' Initialize Environment
+#'
+#' Sets up the drayage environment: storage limits, carrier information, cost
+#' parameters, capacity limits, and route indexing.
+#'
 #' @param env The environment variable.
 #' @param ... Additional arguments.
 #' @export
-initialize <- function(env, ...) {
+init_env <- function(env, ...) {
   args <- list(...)
   # Storage limits
   if (is.null(rate <- args[["rate"]])) {
@@ -190,7 +192,7 @@ get_to_routes <- function(env, ...) {
 generate_cssap <- function(env, tau=12L, ...) {
   do.call(input_configuration, list(env, 'tau'=tau, ...))
   simulate_auction(env)
-  do.call(initialize, list(env, ...))
+  do.call(init_env, list(env, ...))
   get_from_routes(env)
   get_to_routes(env)
 }

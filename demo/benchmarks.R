@@ -9,9 +9,9 @@ p    <- 5L
 mu   <- runif(p, 1.0, 10.0)
 covm <- generatePositiveDefiniteMatrix(p)
 
-TLPR::rmvnorm(n, mu, covm, 8L)
+X <- TLPR::rmvnorm(n, mu, covm, 8L)
 
-points(X[1L:(n-1L)], X[2L:n])
+plot(X[1L:(n-1L)], X[2L:n])
 
 microbenchmark::microbenchmark(
   TLPR::rmvnorm(n, mu, covm, 8L),
@@ -59,11 +59,12 @@ microbenchmark::microbenchmark(
   times = 50L
 )
 
-result <- TLPR::optimizeModelFromJSON(json_path)
+limits <- rep(env$R, env$nI + env$nJ)
+result <- TLPR::optimizeModelFromJSON(json_path, 0L, env$CTo[1L,], limits, env$R)
 
 model <- create_model(env)
 optx <- TLPR::optimal_assignment(
-  model, c(env$CTb, env$CTo[1L,]), 
+  model, c(env$CTb, env$CTo[1L,]),
   c(env$Cb[1L,], env$Co[1L,], c(24L, 22L), c(27L, 37L, 29L), 10L)
 )
 
@@ -73,7 +74,7 @@ result$objval
 result$x
 
 microbenchmark::microbenchmark(
-  result <- TLPR::optimizeModelFromJSON(json_path),
-  TLPR::optimal_assignment(model, c(env$CTb, env$CTo[1L,]), c(env$Cb[1L,], env$Co[1L,], result$limits[env$nI + env$J_], result$limits[env$I_], 40L)),
+  TLPR::optimizeModelFromJSON(json_path, 0L, env$CTo[1L,], limits, env$R),
+  TLPR::optimal_assignment(model, c(env$CTb, env$CTo[1L,]), c(env$Cb[1L,], env$Co[1L,], limits[env$nI + env$J_], limits[env$I_], 40L)),
   times = 100L
 )
