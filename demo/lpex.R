@@ -24,10 +24,11 @@ rhs <- c(ccx$rhs, tlx$rhs, slx$rhs)
 sns <- c(ccx$sense, tlx$sense, slx$sense)
 
 model <- multiperiod_expansion(env, Q, D, A, obj_, rhs, sns)
-model$modelsense <- 'min'
-model$vtype <- rep('C', ncol(model$A))
+model$modelsense <- "min"
+model$vtype      <- rep("C", ncol(model$A))
 
-opt <- gurobi::gurobi(model, params = list(OutputFlag = 0L))
+opt <- solve_lp(model)
+if (is.null(opt$x)) stop("LP infeasible or unbounded: ", opt$status)
 
 phs <- post_hoc_simulation(env, opt$x)
 dtx <- compute_graph_dt(env, phs$S.I, phs$S.J, phs$allocation)
