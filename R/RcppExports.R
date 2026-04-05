@@ -21,8 +21,14 @@ computeEnvironmentCx <- function(jsonFile, t, stateSupport, flowSupport, numThre
 
 #' @useDynLib TLPR
 #' @export
-createGRBmodel <- function() {
-    .Call('_TLPR_createGRBmodel', PACKAGE = 'TLPR')
+bellmanUpdateCx <- function(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L) {
+    .Call('_TLPR_bellmanUpdateCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads)
+}
+
+#' @useDynLib TLPR
+#' @export
+createHIGHSmodel <- function() {
+    .Call('_TLPR_createHIGHSmodel', PACKAGE = 'TLPR')
 }
 
 #' @useDynLib TLPR
@@ -71,6 +77,18 @@ optimizeModelFromJSON <- function(jsonFile, t, spotRates, storage_limits, volume
 #' @export
 updateStateIdx <- function(stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKeys, nOrigins, nDestinations) {
     .Call('_TLPR_updateStateIdx', PACKAGE = 'TLPR', stateIdx, inflowIdx, outflowIndices, stateSupport, extendedStateSupport, flowSupport, xI, xJ, storageLimit, stateKeys, nOrigins, nDestinations)
+}
+
+#' @useDynLib TLPR
+#' @export
+begin_suppress_stdout <- function() {
+    .Call('_TLPR_begin_suppress_stdout', PACKAGE = 'TLPR')
+}
+
+#' @useDynLib TLPR
+#' @export
+end_suppress_stdout <- function(saved_fd) {
+    invisible(.Call('_TLPR_end_suppress_stdout', PACKAGE = 'TLPR', saved_fd))
 }
 
 #' @useDynLib TLPR

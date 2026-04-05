@@ -1,21 +1,23 @@
 Package: TLPR
 Title: What the Package Does (One Line, Title Case)
 Version: 0.0.0.9000
-Authors@R: 
+Authors@R:
     person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
 Description: What the package does (one paragraph).
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Imports:
-    gurobi,
+    data.table,
+    highs,
+    igraph,
     Matrix,
     Rcpp,
     RcppEigen
-LinkingTo: 
+LinkingTo:
     Rcpp,
     RcppEigen
 Encoding: UTF-8
 SystemRequirements: C++17
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3

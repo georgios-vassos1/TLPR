@@ -61,13 +61,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// createGRBmodel
-SEXP createGRBmodel();
-RcppExport SEXP _TLPR_createGRBmodel() {
+// bellmanUpdateCx
+Rcpp::List bellmanUpdateCx(const std::string jsonFile, const int& t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads);
+RcppExport SEXP _TLPR_bellmanUpdateCx(SEXP jsonFileSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(createGRBmodel());
+    Rcpp::traits::input_parameter< const std::string >::type jsonFile(jsonFileSEXP);
+    Rcpp::traits::input_parameter< const int& >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type scnpb(scnpbSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type V_next(V_nextSEXP);
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(bellmanUpdateCx(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// createHIGHSmodel
+SEXP createHIGHSmodel();
+RcppExport SEXP _TLPR_createHIGHSmodel() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(createHIGHSmodel());
     return rcpp_result_gen;
 END_RCPP
 }
@@ -199,6 +217,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// begin_suppress_stdout
+int begin_suppress_stdout();
+RcppExport SEXP _TLPR_begin_suppress_stdout() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(begin_suppress_stdout());
+    return rcpp_result_gen;
+END_RCPP
+}
+// end_suppress_stdout
+void end_suppress_stdout(int saved_fd);
+RcppExport SEXP _TLPR_end_suppress_stdout(SEXP saved_fdSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type saved_fd(saved_fdSEXP);
+    end_suppress_stdout(saved_fd);
+    return R_NilValue;
+END_RCPP
+}
 // rmvnorm
 Eigen::MatrixXd rmvnorm(int n, const Eigen::VectorXd& mean, const Eigen::MatrixXd& covar, int nThreads);
 RcppExport SEXP _TLPR_rmvnorm(SEXP nSEXP, SEXP meanSEXP, SEXP covarSEXP, SEXP nThreadsSEXP) {
@@ -230,7 +268,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
     {"_TLPR_CartesianProductRcppParallelxLB", (DL_FUNC) &_TLPR_CartesianProductRcppParallelxLB, 2},
     {"_TLPR_computeEnvironmentCx", (DL_FUNC) &_TLPR_computeEnvironmentCx, 5},
-    {"_TLPR_createGRBmodel", (DL_FUNC) &_TLPR_createGRBmodel, 0},
+    {"_TLPR_bellmanUpdateCx", (DL_FUNC) &_TLPR_bellmanUpdateCx, 8},
+    {"_TLPR_createHIGHSmodel", (DL_FUNC) &_TLPR_createHIGHSmodel, 0},
     {"_TLPR_createTransportVarsCx", (DL_FUNC) &_TLPR_createTransportVarsCx, 10},
     {"_TLPR_addCapacityConstraintsCx", (DL_FUNC) &_TLPR_addCapacityConstraintsCx, 10},
     {"_TLPR_addStorageLimitConstraintsCx", (DL_FUNC) &_TLPR_addStorageLimitConstraintsCx, 10},
@@ -239,6 +278,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_printConstraintsCx", (DL_FUNC) &_TLPR_printConstraintsCx, 1},
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 5},
     {"_TLPR_updateStateIdx", (DL_FUNC) &_TLPR_updateStateIdx, 12},
+    {"_TLPR_begin_suppress_stdout", (DL_FUNC) &_TLPR_begin_suppress_stdout, 0},
+    {"_TLPR_end_suppress_stdout", (DL_FUNC) &_TLPR_end_suppress_stdout, 1},
     {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 4},
     {"_TLPR_convertListToMapTest", (DL_FUNC) &_TLPR_convertListToMapTest, 2},
     {NULL, NULL, 0}

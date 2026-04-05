@@ -145,8 +145,10 @@ order_quantity <- function(env, ...) {
 #' @export
 create_model <- function(env, ...) {
   args <- list(...)
-  if (constraints <- is.null(args[["constraints"]])) {
-    constraints <- c(carrier_capacity, storage_limit, positivity_, order_quantity)
+  constraints <- if (is.null(args[["constraints"]])) {
+    list(carrier_capacity, storage_limit, positivity_, order_quantity)
+  } else {
+    args[["constraints"]]
   }
 
   constr_list <- lapply(constraints, do.call, args = list(env))
@@ -239,10 +241,17 @@ heuristic_assignment <- function(model, obj_, rhs_, k, edx, ...) {
 
   x   <- numeric(k)
   pos <- 1L
+  sns <- model$sense[-edx]
+  rhs_c <- rhs_[-edx]
   repeat {
     x[pos] <- x[pos] + 1L
-    expr   <- paste0(as.vector(model$A[-edx,idx] %*% x), model$sense[-edx], '=', rhs_[-edx])
-    if (!all(sapply(parse(text = expr), eval))) {
+    lhs <- as.vector(model$A[-edx, idx] %*% x)
+    feasible <- all(
+      (sns == "<" & lhs <= rhs_c) |
+      (sns == ">" & lhs >= rhs_c) |
+      (sns == "=" & lhs == rhs_c)
+    )
+    if (!feasible) {
       x[pos] <- x[pos] - 1L
       pos    <- pos + 1L
     }
@@ -285,10 +294,17 @@ capacitated_random_assignment <- function(model, obj_, rhs_, k, edx, ...) {
 
   x   <- numeric(k)
   pos <- 1L
+  sns <- model$sense[-edx]
+  rhs_c <- rhs_[-edx]
   repeat {
     x[pos] <- x[pos] + 1L
-    expr   <- paste0(as.vector(model$A[-edx,idx] %*% x), model$sense[-edx], '=', rhs_[-edx])
-    if (!all(sapply(parse(text = expr), eval))) {
+    lhs <- as.vector(model$A[-edx, idx] %*% x)
+    feasible <- all(
+      (sns == "<" & lhs <= rhs_c) |
+      (sns == ">" & lhs >= rhs_c) |
+      (sns == "=" & lhs == rhs_c)
+    )
+    if (!feasible) {
       x[pos] <- x[pos] - 1L
       pos    <- pos + 1L
     }
@@ -304,9 +320,9 @@ capacitated_random_assignment <- function(model, obj_, rhs_, k, edx, ...) {
 }
 
 #' Optimal Single Stage Shipment Assignment
-#' 
+#'
 #' Solves for the optimal assignment of shipments.
-#' 
+#'
 #' @param model The optimization model.
 #' @param obj_ The objective function coefficients.
 #' @param rhs_ The right-hand side of constraints.
@@ -314,13 +330,34 @@ capacitated_random_assignment <- function(model, obj_, rhs_, k, edx, ...) {
 #' @param ... Additional arguments.
 #' @return The result of the optimization.
 #' @export
-#' @import gurobi
+#' @importFrom highs highs_solve
 optimal_assignment <- function(model, obj_, rhs_, params = list(OutputFlag = 0L), ...) {
-  # Update dynamic parameters
   model$obj <- obj_
-  model$rhs <- c(model$rhs, rhs_)
-  # solve
-  gurobi(model, params = params)
+  model$rhs <- rhs_
+  lhs_hi <- ifelse(model$sense %in% c(">", "="), model$rhs, -Inf)
+  rhs_hi <- ifelse(model$sense %in% c("<", "="), model$rhs,  Inf)
+  lb  <- if (!is.null(model$lb)) model$lb else rep(0.0, length(obj_))
+  ub  <- if (!is.null(model$ub)) model$ub else rep(Inf, length(obj_))
+  A_csc <- methods::as(model$A, "CsparseMatrix")
+  saved_fd <- begin_suppress_stdout()
+  res <- tryCatch(
+    highs::highs_solve(
+      L       = model$obj,
+      lower   = lb,
+      upper   = ub,
+      A       = A_csc,
+      lhs     = lhs_hi,
+      rhs     = rhs_hi,
+      types   = model$vtype,
+      maximum = identical(model$modelsense, "max")
+    ),
+    finally = end_suppress_stdout(saved_fd)
+  )
+  list(
+    objval = if (res$status_message == "Optimal") res$objective_value  else NULL,
+    x      = if (res$status_message == "Optimal") res$primal_solution  else NULL,
+    status = toupper(res$status_message)
+  )
 }
 
 #' Example Demo
