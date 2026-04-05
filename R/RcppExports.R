@@ -97,9 +97,3 @@ rmvnorm <- function(n, mean, covar, nThreads = 8L) {
     .Call('_TLPR_rmvnorm', PACKAGE = 'TLPR', n, mean, covar, nThreads)
 }
 
-#' @useDynLib TLPR
-#' @export
-convertListToMapTest <- function(rlist, KeyTypeArg) {
-    invisible(.Call('_TLPR_convertListToMapTest', PACKAGE = 'TLPR', rlist, KeyTypeArg))
-}
-

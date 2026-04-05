@@ -3,14 +3,16 @@
 #include <thread>
 #include <Rcpp.h>
 
-#ifdef CARTESIAN_HPP
+#ifdef STANDALONE_BUILD
   #include "cartesian.hpp"
 #else
   #include "../inst/include/cartesian.hpp"
 #endif
 
-using namespace std;
-using namespace Rcpp;
+using std::vector;
+using std::size_t;
+using Rcpp::List;
+using Rcpp::as;
 
 // Function using only STL containers
 std::vector<std::vector<int>> CartesianProductIntSTL(const std::vector<std::vector<int>>& vectors) {
@@ -208,35 +210,3 @@ Eigen::MatrixXi CartesianProductRcppParallelxLB(List vectors, int numThreads) {
     return CartesianProductIntParallelxLB(cpp_vectors, numThreads);
 }
 
-// int main(int argc, char** argv) {
-//   // Example usage
-//   std::vector<std::vector<int>> vectors = {{1, 2, 3}, {4, 5}, {6, 7, 8}};
-// 
-//   // Compute the Cartesian product using STL containers
-//   std::vector<std::vector<int>> resultsSTL = CartesianProductIntSTL(vectors);
-//   // Print the results
-//   std::cout << "STL results:" << std::endl;
-//   for (const auto& v : resultsSTL) {
-//     for (const auto& elem : v) {
-//       std::cout << elem << " ";
-//     }
-//     std::cout << std::endl;
-//   }
-//   std::cout << std::endl;
-// 
-//   // Compute the Cartesian product using Eigen
-//   Eigen::MatrixXi resultsEigen = CartesianProductInt(vectors);
-//   // Print the results
-//   std::cout << "Eigen results:" << std::endl;
-//   std::cout << resultsEigen << std::endl;
-//   std::cout << std::endl;
-// 
-//   // Compute the Cartesian product using Eigen in parallel
-//   Eigen::MatrixXi resultsEigenParallel = CartesianProductIntParallel(vectors, 4);
-//   // Print the results
-//   std::cout << "Eigen parallel results:" << std::endl;
-//   std::cout << resultsEigenParallel << std::endl;
-//   std::cout << std::endl;
-// 
-//   return 0;
-// }

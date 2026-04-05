@@ -1,13 +1,16 @@
 #include <iostream>
 #include <fstream>
 
-#ifdef READER_HPP 
+#ifdef STANDALONE_BUILD
   #include "reader.hpp"
 #else
   #include "../inst/include/reader.hpp"
 #endif
 
-using namespace std;
+using std::cout;
+using std::endl;
+using std::string;
+using std::ifstream;
 
 // Function to print the instance
 void printInstance(const std::unordered_map<std::string, std::vector<int>>& winners,
@@ -56,37 +59,3 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
 }
 
 
-// int main(int argc, char** argv) {
-//   if (argc < 2) {
-//     std::cerr << "Usage: " << argv[0] << " <input_file>" << std::endl;
-//     return(EXIT_FAILURE);
-//   }
-// 
-//   std::ifstream file(argv[1]);
-//   nlohmann::json input;
-//   file >> input;
-// 
-//   // Extract the data
-//   const int nCO = input["nCO"][0];
-//   const int nL  = input["nL"][0];
-//   const std::vector<std::vector<int>> bids = input["B"];
-//   const std::vector<std::vector<int>> lanes = input["L"];
-//   const std::vector<std::vector<int>> Cb = input["Cb"];
-//   const std::vector<std::vector<int>> Co = input["Co"];
-// 
-//   const std::vector<std::vector<double>> spotRates = input["CTo"];
-// 
-//   std::unordered_map<std::string, std::vector<int>> winners;
-//   std::unordered_map<std::string, std::vector<double>> CTb;
-//   // std::unordered_map<std::string, std::vector<int>> Cb;
-//   std::unordered_map<std::string, int> carrierIdx;
-// 
-//   winners = importListOfVectors<int>(input["winner"]);
-//   CTb = importListOfVectors<double>(input["CTb_list"]);
-//   carrierIdx = importList<int>(input["carrierIdx"]);
-// 
-//   // Print the strategy of the instance
-//   printInstance(winners, bids, lanes, CTb, spotRates[0], nCO, nL);
-// 
-//   return 0;
-// }

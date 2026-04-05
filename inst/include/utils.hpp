@@ -102,9 +102,10 @@ namespace utils {
 
     for (int i = 0; i < list.size(); i++) {
       KeyType key;
-      if (std::is_same<KeyType, int>::value) {
+      if constexpr (std::is_same<KeyType, int>::value) {
         key = i;
       } else {
+        if (useIndices) Rcpp::stop("Named list required for non-integer key type");
         key = Rcpp::as<KeyType>(names[i]);
       }
 

@@ -1,4 +1,4 @@
-#ifdef UTILS_HPP 
+#ifdef STANDALONE_BUILD
   #include "utils.hpp"
 #else
   #include "../inst/include/utils.hpp"
@@ -47,10 +47,7 @@ namespace utils {
 
 } // namespace utils
 
-// Wrapper function to be called from R
-//' @useDynLib TLPR
-//' @export
-// [[Rcpp::export]]
+// Wrapper function for manual testing (not exported to R namespace)
 void convertListToMapTest(SEXP rlist, const std::string& KeyTypeArg) {
   if (KeyTypeArg == "int") {
     std::map<int, std::vector<float>> map = utils::convertListToMap<int, float>(rlist);

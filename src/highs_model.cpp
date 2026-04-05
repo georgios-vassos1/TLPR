@@ -9,17 +9,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#ifdef READER_HPP
+#ifdef STANDALONE_BUILD
   #include "reader.hpp"
 #else
   #include "../inst/include/reader.hpp"
 #endif
-#ifdef UTILS_HPP
+#ifdef STANDALONE_BUILD
   #include "utils.hpp"
 #else
   #include "../inst/include/utils.hpp"
 #endif
-#ifdef CARTESIAN_HPP
+#ifdef STANDALONE_BUILD
   #include "cartesian.hpp"
 #else
   #include "../inst/include/cartesian.hpp"
@@ -369,9 +369,6 @@ Eigen::MatrixXd computeEnvironmentCx(
   Eigen::MatrixXd transit(nTransit, 6);
   transit.setConstant(std::numeric_limits<double>::quiet_NaN());
 
-  // Set the number of threads
-  omp_set_num_threads(numThreads);
-
   // Build the base model once, serially.
   Highs baseHighs;
   baseHighs.setOptionValue("output_flag", false);
@@ -381,7 +378,7 @@ Eigen::MatrixXd computeEnvironmentCx(
   try {
     addCapacityConstraints(baseHighs, baseColIdx, winnerKeys, winners, bids, carrierIdx, nSpotCarriers, nLanes, Cb[t], Co[t]);
     addStorageLimitConstraints(baseHighs, baseColIdx, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits);
-    addVolumeConstraint(baseHighs, baseColIdx, n, 10);
+    addVolumeConstraint(baseHighs, baseColIdx, n, 0); // placeholder; overridden per action in loop
   } catch (const std::exception& e) {
     Rcpp::stop("Error building base model: %s", e.what());
   }
@@ -400,7 +397,7 @@ Eigen::MatrixXd computeEnvironmentCx(
   std::atomic<bool> anyThreadFailed{false};
   std::string       threadErrorMsg;
 
-  #pragma omp parallel
+  #pragma omp parallel num_threads(numThreads)
   {
     Highs threadHighs;
     threadHighs.setOptionValue("output_flag", false);
@@ -409,9 +406,13 @@ Eigen::MatrixXd computeEnvironmentCx(
     const std::vector<int>& colIdx = baseColIdx;
 
     // Thread-local working storage
-    std::vector<double> rhs        = baseRhs;
-    std::vector<int>    fdx        (nOrigins + nDestinations + nSpotCarriers, 0);
-    std::vector<double> nextState  (nOrigins + nDestinations, 0.0);
+    std::vector<double> rhs           = baseRhs;
+    std::vector<int>    fdx           (nOrigins + nDestinations + nSpotCarriers, 0);
+    std::vector<double> nextState     (nOrigins + nDestinations, 0.0);
+    std::vector<double> spotRatesTmp  (nSpotCarriers * nLanes, 0.0);
+    std::vector<double> x             (n, 0.0);
+    std::vector<double> xI            (nOrigins, 0.0);
+    std::vector<double> xJ            (nDestinations, 0.0);
     int                 nextStateIdx = 0;
 
     const int volumeRow = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
@@ -444,7 +445,7 @@ Eigen::MatrixXd computeEnvironmentCx(
             for (int k3 = 0; k3 < nWdx; ++k3) {
               const auto& spotRateIdx = spotRateIndices[k3];
 
-              std::vector<double> spotRatesTmp(nSpotCarriers * nLanes, 0.0);
+              std::fill(spotRatesTmp.begin(), spotRatesTmp.end(), 0.0);
               for (int k3dx = 0; k3dx < nSpotCarriers; ++k3dx) {
                 fdx[nOrigins + nDestinations + k3dx] = spotRateIdx[k3dx];
                 for (int ldx = 0; ldx < nLanes; ++ldx)
@@ -458,16 +459,15 @@ Eigen::MatrixXd computeEnvironmentCx(
                 double objval = threadHighs.getObjectiveValue();
                 const auto& sol = threadHighs.getSolution();
 
-                std::vector<double> x(n);
                 for (int k1dx = 0; k1dx < n; ++k1dx)
                   x[k1dx] = sol.col_value[colIdx[k1dx]];
 
-                std::vector<double> xI(nOrigins, 0.0);
+                std::fill(xI.begin(), xI.end(), 0.0);
                 for (int k1dx = 0; k1dx < nOrigins; ++k1dx)
                   for (const auto& ldx : fromOrigin[k1dx])
                     xI[k1dx] += x[ldx - 1];
 
-                std::vector<double> xJ(nDestinations, 0.0);
+                std::fill(xJ.begin(), xJ.end(), 0.0);
                 for (int k1dx = 0; k1dx < nDestinations; ++k1dx)
                   for (const auto& ldx : toDestination[k1dx])
                     xJ[k1dx] += x[ldx - 1];
@@ -490,8 +490,12 @@ Eigen::MatrixXd computeEnvironmentCx(
                   nextStateIdx = std::inner_product(nextState.begin(), nextState.end(), stateKeys.begin(), 0);
 
                   int kdx = std::inner_product(fdx.begin(), fdx.end(), flowKeys.begin(), 0);
-                  int p   = (i * nAdx + j) * nQdx * nDdx * nWdx + kdx;
+                  long long p = (static_cast<long long>(i) * nAdx + j) * nQdx * nDdx * nWdx + kdx;
 
+                  // Transit matrix columns:
+                  //   [0] next_state_idx (1-based)   [1] transport_cost
+                  //   [2] state_idx      (1-based)   [3] action_idx (1-based)
+                  //   [4] scenario_idx   (1-based)   [5] period (1-based, = t+1)
                   transit(p, 0) = nextStateIdx + 1;
                   transit(p, 1) = objval;
                   transit(p, 2) = i + 1;
@@ -624,8 +628,6 @@ Rcpp::List bellmanUpdateCx(
   const int nDdx = static_cast<int>(outflowIndices.size());
   const int nWdx = static_cast<int>(spotRateIndices.size());
 
-  omp_set_num_threads(numThreads);
-
   Highs baseHighs;
   baseHighs.setOptionValue("output_flag", false);
   baseHighs.setOptionValue("threads", 1);
@@ -634,7 +636,7 @@ Rcpp::List bellmanUpdateCx(
   try {
     addCapacityConstraints(baseHighs, baseColIdx, winnerKeys, winners, bids, carrierIdx, nSpotCarriers, nLanes, Cb[t], Co[t]);
     addStorageLimitConstraints(baseHighs, baseColIdx, winnerKeys, winners, bids, lanes, nSpotCarriers, nLanes, nWarehouses, limits);
-    addVolumeConstraint(baseHighs, baseColIdx, n, 10);
+    addVolumeConstraint(baseHighs, baseColIdx, n, 0); // placeholder; overridden per action in loop
   } catch (const std::exception& e) {
     Rcpp::stop("Error building base model: %s", e.what());
   }
@@ -656,7 +658,7 @@ Rcpp::List bellmanUpdateCx(
   std::atomic<bool> anyThreadFailed{false};
   std::string       threadErrorMsg;
 
-  #pragma omp parallel
+  #pragma omp parallel num_threads(numThreads)
   {
     Highs threadHighs;
     threadHighs.setOptionValue("output_flag", false);
@@ -664,9 +666,13 @@ Rcpp::List bellmanUpdateCx(
     threadHighs.passModel(baseLp);
     const std::vector<int>& colIdx = baseColIdx;
 
-    std::vector<double> rhs        = baseRhs;
-    std::vector<int>    fdx        (nOrigins + nDestinations + nSpotCarriers, 0);
-    std::vector<double> nextState  (nOrigins + nDestinations, 0.0);
+    std::vector<double> rhs           = baseRhs;
+    std::vector<int>    fdx           (nOrigins + nDestinations + nSpotCarriers, 0);
+    std::vector<double> nextState     (nOrigins + nDestinations, 0.0);
+    std::vector<double> spotRatesTmp  (nSpotCarriers * nLanes, 0.0);
+    std::vector<double> x             (n, 0.0);
+    std::vector<double> xI            (nOrigins, 0.0);
+    std::vector<double> xJ            (nDestinations, 0.0);
     int                 nextStateIdx = 0;
 
     const int volumeRow = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
@@ -699,7 +705,7 @@ Rcpp::List bellmanUpdateCx(
             for (int k3 = 0; k3 < nWdx; ++k3) {
               const auto& spotRateIdx = spotRateIndices[k3];
 
-              std::vector<double> spotRatesTmp(nSpotCarriers * nLanes, 0.0);
+              std::fill(spotRatesTmp.begin(), spotRatesTmp.end(), 0.0);
               for (int k3dx = 0; k3dx < nSpotCarriers; ++k3dx) {
                 fdx[nOrigins + nDestinations + k3dx] = spotRateIdx[k3dx];
                 for (int ldx = 0; ldx < nLanes; ++ldx)
@@ -713,16 +719,15 @@ Rcpp::List bellmanUpdateCx(
                 double objval = threadHighs.getObjectiveValue();
                 const auto& sol = threadHighs.getSolution();
 
-                std::vector<double> x(n);
                 for (int k1dx = 0; k1dx < n; ++k1dx)
                   x[k1dx] = sol.col_value[colIdx[k1dx]];
 
-                std::vector<double> xI(nOrigins, 0.0);
+                std::fill(xI.begin(), xI.end(), 0.0);
                 for (int k1dx = 0; k1dx < nOrigins; ++k1dx)
                   for (const auto& ldx : fromOrigin[k1dx])
                     xI[k1dx] += x[ldx - 1];
 
-                std::vector<double> xJ(nDestinations, 0.0);
+                std::fill(xJ.begin(), xJ.end(), 0.0);
                 for (int k1dx = 0; k1dx < nDestinations; ++k1dx)
                   for (const auto& ldx : toDestination[k1dx])
                     xJ[k1dx] += x[ldx - 1];
@@ -892,6 +897,7 @@ SEXP createTransportVarsCx(
     const int& nLanes) {
 
   Rcpp::XPtr<Highs> highs(model_ptr);
+  if (!highs) Rcpp::stop("model_ptr is NULL or expired");
 
   // Check if model already has variables of size n
   int numVars = static_cast<int>(highs->getLp().col_cost_.size());
@@ -930,6 +936,8 @@ void addCapacityConstraintsCx(
 
   Rcpp::XPtr<Highs>              highs(model_ptr);
   Rcpp::XPtr<std::vector<int>>   colIdx(transport_ptr);
+  if (!highs)  Rcpp::stop("model_ptr is NULL or expired");
+  if (!colIdx) Rcpp::stop("transport_ptr is NULL or expired");
 
   std::unordered_map<std::string, std::vector<int>> winnersCx    = rListToMap<int>(winners);
   std::unordered_map<std::string, int>              carrierIdxCx = rListToMapScalar<int>(carrierIdx);
@@ -959,6 +967,8 @@ void addStorageLimitConstraintsCx(
 
   Rcpp::XPtr<Highs>            highs(model_ptr);
   Rcpp::XPtr<std::vector<int>> colIdx(transport_ptr);
+  if (!highs)  Rcpp::stop("model_ptr is NULL or expired");
+  if (!colIdx) Rcpp::stop("transport_ptr is NULL or expired");
 
   std::unordered_map<std::string, std::vector<int>> winnersCx = rListToMap<int>(winners);
 
@@ -976,6 +986,8 @@ void addStorageLimitConstraintsCx(
 void addVolumeConstraintCx(SEXP model_ptr, SEXP transport_ptr, const int& n, const double& At) {
   Rcpp::XPtr<Highs>            highs(model_ptr);
   Rcpp::XPtr<std::vector<int>> colIdx(transport_ptr);
+  if (!highs)  Rcpp::stop("model_ptr is NULL or expired");
+  if (!colIdx) Rcpp::stop("transport_ptr is NULL or expired");
 
   addVolumeConstraint(*highs, *colIdx, n, At);
 }
@@ -986,6 +998,7 @@ void addVolumeConstraintCx(SEXP model_ptr, SEXP transport_ptr, const int& n, con
 // [[Rcpp::export]]
 void printObjectiveVectorCx(SEXP model_ptr) {
   Rcpp::XPtr<Highs> highs(model_ptr);
+  if (!highs) Rcpp::stop("model_ptr is NULL or expired");
   printObjectiveVector(*highs);
 }
 
@@ -995,6 +1008,7 @@ void printObjectiveVectorCx(SEXP model_ptr) {
 // [[Rcpp::export]]
 void printConstraintsCx(SEXP model_ptr) {
   Rcpp::XPtr<Highs> highs(model_ptr);
+  if (!highs) Rcpp::stop("model_ptr is NULL or expired");
   printConstraints(*highs);
 }
 
@@ -1011,6 +1025,7 @@ Rcpp::List optimizeModelFromJSON(
 
   // Read the JSON file
   std::ifstream file(expand_path(jsonFile));
+  if (!file) Rcpp::stop("Cannot open JSON file: %s", jsonFile.c_str());
   nlohmann::json input;
   file >> input;
 
@@ -1037,7 +1052,7 @@ Rcpp::List optimizeModelFromJSON(
 
   const int n = nStrategicLanes + nSpotSources * nLanes;
   const std::vector<int> nWarehouses = {nOrigins, nDestinations};
-  const std::vector<int> limits = utils::generateRandomIntegers(nOrigins + nDestinations, 20, 40);
+  const std::vector<int>& limits = storage_limits;
 
   // Preallocate the result list
   Rcpp::List result = Rcpp::List::create(
@@ -1135,8 +1150,10 @@ std::vector<int> updateStateIdx(
 int begin_suppress_stdout() {
   fflush(stdout);
   int saved = dup(1);
+  if (saved == -1) return -1;
   int devnull = open("/dev/null", O_WRONLY);
-  dup2(devnull, 1);
+  if (devnull == -1) { close(saved); return -1; }
+  if (dup2(devnull, 1) == -1) { close(devnull); close(saved); return -1; }
   close(devnull);
   return saved;
 }
@@ -1145,6 +1162,7 @@ int begin_suppress_stdout() {
 //' @export
 // [[Rcpp::export]]
 void end_suppress_stdout(int saved_fd) {
+  if (saved_fd == -1) return;
   fflush(stdout);
   dup2(saved_fd, 1);
   close(saved_fd);

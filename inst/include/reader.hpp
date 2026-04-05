@@ -45,7 +45,7 @@ std::unordered_map<std::string, T> importList(const nlohmann::json& input) {
     // Extract the key (as string) and value (as array) pair
     std::string key = it.key();
     // Ensure the value is an array with exactly one integer element
-    if (!it.value().is_array() || it.value().size() != 1 || !it.value()[0].is_number_integer()) {
+    if (!it.value().is_array() || it.value().size() != 1 || !it.value()[0].is_number()) {
       throw std::invalid_argument("Expected an array with a single integer for key: " + key);
     }
     // Attempt to extract the value as type T

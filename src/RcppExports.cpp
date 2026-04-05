@@ -251,17 +251,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// convertListToMapTest
-void convertListToMapTest(SEXP rlist, const std::string& KeyTypeArg);
-RcppExport SEXP _TLPR_convertListToMapTest(SEXP rlistSEXP, SEXP KeyTypeArgSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< SEXP >::type rlist(rlistSEXP);
-    Rcpp::traits::input_parameter< const std::string& >::type KeyTypeArg(KeyTypeArgSEXP);
-    convertListToMapTest(rlist, KeyTypeArg);
-    return R_NilValue;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
@@ -281,7 +270,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_begin_suppress_stdout", (DL_FUNC) &_TLPR_begin_suppress_stdout, 0},
     {"_TLPR_end_suppress_stdout", (DL_FUNC) &_TLPR_end_suppress_stdout, 1},
     {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 4},
-    {"_TLPR_convertListToMapTest", (DL_FUNC) &_TLPR_convertListToMapTest, 2},
     {NULL, NULL, 0}
 };
 
