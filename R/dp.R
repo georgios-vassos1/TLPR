@@ -347,15 +347,15 @@ compute_environment <- function(env, env.dp, t, start, end, scenaria, weights, F
 
         # Compute the index of the next state of the system
         next_i <- stateIdx(
-          env, 
-          pmax(pmin(env.dp$SI_[env.dp$Sdx[i,env$I_]] + q, env$R) - xI, 0L), 
-          pmin(pmax(env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]] - d, -env$R) + xJ, env$R), 
+          env,
+          pmax(pmin(env.dp$SI_[env.dp$Sdx[i,env$I_]] + q - xI, env$R), 0L),
+          pmin(pmax(env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]] - d, -env$R) + xJ, env$R),
           env.dp$max.S, weights)
 
-        # Store into the transition matrix
+        # Store into the transition matrix (objval only; h.t is added by dynamic_programming)
         transit[((i-start)*env.dp$nA+(j-1L))*nScen+k,] <- c(
           next_i,
-          h.t(env, env.dp$SI_[env.dp$Sdx[next_i,env$I_]], env.dp$SJ_[env.dp$Sdx[next_i,env$nI+env$J_]], alpha = alpha) + optx$objval, 
+          optx$objval,
           i, j, scndx)
       }
     }

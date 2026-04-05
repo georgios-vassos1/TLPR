@@ -66,7 +66,7 @@ eval_portfolio <- function(env, model, A_, S0, Q, D, ...) {
 
   nA <- length(A_)
 
-  offdx <- cumsum(c(env$nCS+env$nCO, env$nI, env$nJ, 1L))
+  offdx <- cumsum(c(env$nCS+env$nCO, env$nJ, env$nI, 1L))
   rhs_  <- rep(NA, offdx[4L])
 
   cost <- vector(mode = "list", length = env$tau)
@@ -76,14 +76,14 @@ eval_portfolio <- function(env, model, A_, S0, Q, D, ...) {
 
   for (t in seq(env$tau)) {
     m <- nrow(S_[[t]])
-    S_[[t+1L]] <- matrix(0L, nrow = m*nA, ncol = env$nL)
+    S_[[t+1L]] <- matrix(0L, nrow = m*nA, ncol = env$nI + env$nJ)
     cost[[t]]  <- matrix(NA, nrow = m, ncol = nA)
     allocation[[t]] <- numeric(m*nA*env$nvars)
     obj_ <- c(env$CTb, env$CTo[t,])
     rhs_[seq(offdx[1L])] <- c(env$Cb[t,], env$Co[t,])
     for (i in seq(m)) {
-      rhs_[offdx[1L]+env$I_] <- env$R - S_[[t]][i, env$nI+env$J_]
-      rhs_[offdx[2L]+env$J_] <- S_[[t]][i, env$I_] + Q[(t-1L)*env$nI+env$I_]
+      rhs_[offdx[1L]+env$J_] <- env$R - S_[[t]][i, env$nI+env$J_]
+      rhs_[offdx[2L]+env$I_] <- S_[[t]][i, env$I_] + Q[(t-1L)*env$nI+env$I_]
       for (j in seq(nA)) {
         rhs_[offdx[4L]] <- A_[j]
         optx <- optimal_assignment(model, obj_, rhs_)
@@ -129,7 +129,7 @@ eval_portfolio <- function(env, model, A_, S0, Q, D, ...) {
 eval_portfolio_t <- function(env, model, A_, t, S.t, Q.t, ...) {
 
   nA <- length(A_)
-  offdx <- cumsum(c(env$nCS+env$nCO, env$nI, env$nJ, 1L))
+  offdx <- cumsum(c(env$nCS+env$nCO, env$nJ, env$nI, 1L))
   rhs_  <- rep(NA, offdx[4L])
 
   cost <- rep(NaN, nA)
@@ -137,8 +137,8 @@ eval_portfolio_t <- function(env, model, A_, t, S.t, Q.t, ...) {
 
   obj_ <- c(env$CTb, env$CTo[t,])
   rhs_[seq(offdx[1L])]   <- c(env$Cb[t,], env$Co[t,])
-  rhs_[offdx[1L]+env$I_] <- env$R - S.t[env$nI+env$J_]
-  rhs_[offdx[2L]+env$J_] <- S.t[env$I_] + Q.t
+  rhs_[offdx[1L]+env$J_] <- env$R - S.t[env$nI+env$J_]
+  rhs_[offdx[2L]+env$I_] <- S.t[env$I_] + Q.t
 
   for (j in seq(nA)) {
     rhs_[offdx[4L]] <- A_[j]

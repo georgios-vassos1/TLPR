@@ -172,7 +172,7 @@ plot2x2instance <- function(env, graph.dt, S.I, S.J, Q, D) {
          y = c(-1.00, 1.00, -1.00, 1.00, -0.60, 0.60, -0.60, 0.60), 
          labels = c(
            Q[(t_ - 1L) * env$nI + seq(env$nI)],
-           D[(t_ - 1L) * env$nI + seq(env$nI)],
+           D[(t_ - 1L) * env$nJ + seq(env$nJ)],
            S.I[(t_ - 1L) * env$nI + env$I_, 1L],
            S.J[(t_ - 1L) * env$nJ + env$J_, 1L]
          ),
