@@ -95,8 +95,8 @@ chunkup <- function(n, k) {
 #'
 #' @export
 compute_graph_dt <- function(env, S.I, S.J, allocation) {
-  # Create a vector of lanes
-  lanes <- c(env$L_, seq(env$nL))
+  # Create a vector of lanes (env$L_ is a list of per-carrier lane indices)
+  lanes <- c(unlist(env$L_), seq(env$nL))
   
   # Construct a data table with columns t, lane, origin, destination, and assignment
   dt <- as.data.table(cbind(

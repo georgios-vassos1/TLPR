@@ -30,14 +30,15 @@ random_volume <- function(capacity, limit, ...) {
 #' @param pi_trans A function representing the policy for the transition.
 #' @param pi_alloc A list of functions representing the allocation policies to be used during the simulation.
 #' @param args A list of additional arguments to be passed to the policy functions.
-#' @param Q A matrix representing the exogenous state related to supply (optional). If NULL, it will be sampled based on the exog parameter.
-#' @param D A matrix representing the exogenous state related to demand (optional). If NULL, it will be sampled based on the exog parameter.
-#' @param ... Additional arguments (not used in the function directly).
-#' @param exog A list of functions and parameters for sampling exogenous states if Q or D are not provided.
-#' 
+#' @param Q A matrix representing the exogenous state related to supply (optional). If NULL, sampled via \code{exog}.
+#' @param D A matrix representing the exogenous state related to demand (optional). If NULL, sampled via \code{exog}.
+#' @param exog A named list with elements \code{Q} and \code{D}, each containing \code{func} and \code{params}
+#'   used to sample exogenous states when \code{Q} or \code{D} are NULL.
+#' @param ... Additional arguments (not used).
+#'
 #' @return A list containing the simulation results, including costs, allocations, state matrices, and the status of the simulation.
 #' @export
-simulate_system <- function(env, pi_trans, pi_alloc, args, Q=NULL, D=NULL, ...) {
+simulate_system <- function(env, pi_trans, pi_alloc, args, Q = NULL, D = NULL, exog = NULL, ...) {
   npi <- length(pi_alloc)
   # Simulation metrics
   S.I  <- matrix(0.0, nrow = (env$tau + 1L) * env$nI, ncol = npi)

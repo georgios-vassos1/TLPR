@@ -45,7 +45,7 @@ env$CTo <- matrix(
   ncol = env$nCO)
 
 ## -- Evaluate portfolio --------------------------------------
-cpx <- eval_portfolio(env, A_, S0, Q, D)
+cpx <- eval_portfolio(env, model, A_, S0, Q, D)
 
 ## -- Report --------------------------------------------------
 cat("[05] Mean per-period cost over action grid:\n")

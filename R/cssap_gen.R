@@ -61,8 +61,8 @@ simulate_winners <- function(nB, nCS) {
 input_configuration <- function(env, ...) {
   args <- list(...)
   if (!is.null(args[["config"]])) {
-    for (key in names(config)) {
-      assign(key, config[[key]], envir = env)
+    for (key in names(args[["config"]])) {
+      assign(key, args[["config"]][[key]], envir = env)
     }
   } else {
     env$tau <- ifelse(is.null(args[["tau"]]), 12L, args[["tau"]])
