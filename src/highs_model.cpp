@@ -809,7 +809,7 @@ Rcpp::List bellmanUpdateCx(
     for (int j = 0; j < nAdx; ++j) {
       int ij = i * nAdx + j;
       if (!hasFeas[ij]) continue;
-      double q = -holdCost - sumCost[ij] / sumW[ij] + sumV[ij] / sumW[ij];
+      double q = -holdCost - sumCost[ij] + sumV[ij];
       Q_t[ij] = q;
       Qmax = std::max(Qmax, q);
       Qmin = std::min(Qmin, q);
