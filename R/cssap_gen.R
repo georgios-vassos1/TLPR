@@ -195,6 +195,117 @@ generate_cssap <- function(env, tau=12L, ...) {
   get_to_routes(env)
 }
 
+#' Generate Instance
+#'
+#' Generates a complete TLPR problem instance, including auction structure,
+#' routing, stochastic parameters, and derived indices. Optionally writes
+#' the instance to a JSON file.
+#'
+#' @param nI Number of inbound (source) locations. Defaults to 1L.
+#' @param nJ Number of outbound (destination) locations. Defaults to 1L.
+#' @param tau Time horizon. Defaults to 4L.
+#' @param nB Number of bids. Defaults to 5L.
+#' @param nCS Number of strategic carriers. Defaults to 10L.
+#' @param nCO Number of spot (outside option) carriers. Defaults to 1L.
+#' @param rate Capacity rate parameter. Defaults to 4.0.
+#' @param Q List with elements \code{vals} (integer vector of supply quantities)
+#'   and \code{prob} (probability vector). Defaults to vals = c(0, 4, 8),
+#'   prob = c(0.1, 0.7, 0.2).
+#' @param D List with elements \code{vals} (integer vector of demand quantities)
+#'   and \code{prob} (probability vector). Defaults to vals = c(0, 4, 8),
+#'   prob = c(0.1, 0.5, 0.4).
+#' @param W List with elements \code{vals} (numeric vector of random cost shocks)
+#'   and \code{prob} (probability vector or NULL). If \code{prob} is NULL,
+#'   computed via \code{dnorm(vals, 18, 12)} normalised.
+#' @param alpha Numeric vector of penalty weights. If NULL, defaults to
+#'   \code{c(rep(5.0, nI), rep(c(4.0, 8.0), each = nJ))}.
+#' @param max.S Maximum storage level. If NULL, defaults to \code{env$R}
+#'   (which is \code{10 * rate}).
+#' @param seed If non-NULL, calls \code{set.seed(seed)} before any stochastic
+#'   generation for reproducibility.
+#' @param path If non-NULL, writes the instance as JSON to this path. If
+#'   \code{TRUE}, writes to a default filename
+#'   \code{instance{nI}x{nJ}_{tau}_001.json} in the current directory.
+#' @return The populated environment (invisibly).
+#' @export
+generate_instance <- function(
+    nI = 1L, nJ = 1L, tau = 4L,
+    nB = 5L, nCS = 10L, nCO = 1L, rate = 4.0,
+    Q = list(vals = c(0L, 4L, 8L), prob = c(0.1, 0.7, 0.2)),
+    D = list(vals = c(0L, 4L, 8L), prob = c(0.1, 0.5, 0.4)),
+    W = list(vals = c(7.0, 22.0), prob = NULL),
+    alpha = NULL,
+    max.S = NULL,
+    seed = NULL,
+    path = NULL
+) {
+  if (!is.null(seed)) set.seed(seed)
+
+  env <- new.env(parent = baseenv())
+
+  # 1. Auction structure + routing
+  generate_cssap(env, tau = tau, nI = nI, nJ = nJ,
+                 nB = nB, nCS = nCS, nCO = nCO, rate = rate)
+
+  # 2. Carrier post-processing
+  env$carrierIdx <- setNames(as.list(seq_along(env$winner)), names(env$winner))
+  env$winnerKey  <- names(env$winner)
+  df <- data.frame(
+    Carrier = names(env$winner)[env$carriers[seq(env$nL_)]],
+    CTb = env$CTb
+  )
+  env$CTb_list <- split(df$CTb, df$Carrier)
+
+  # 3. Stochastic parameters
+  env$max.S <- if (is.null(max.S)) env$R else as.integer(max.S)
+  env$nSI   <- env$max.S + 1L
+  env$nSJ   <- 2L * env$max.S + 1L
+  env$nSdx  <- (env$nSI ^ env$nI) * (env$nSJ ^ env$nJ)
+  env$nA    <- env$max.S + 1L
+
+  env$alpha <- if (is.null(alpha)) {
+    c(rep(5.0, env$nI), rep(c(4.0, 8.0), each = env$nJ))
+  } else {
+    alpha
+  }
+
+  env$Q <- Q
+  env$D <- D
+  if (is.null(W$prob)) {
+    W$prob <- dnorm(W$vals, 18.0, 12.0)
+    W$prob <- W$prob / sum(W$prob)
+  }
+  env$W <- W
+
+  env$nQ <- length(env$Q$vals)
+  env$nD <- length(env$D$vals)
+  env$nW <- length(env$W$vals)
+  env$nOmega <- (env$nQ ^ env$nI) * (env$nD ^ env$nJ) * (env$nW ^ env$nCO)
+
+  # 4. Mixed-radix keys
+  env$stateKeys <- get_adjustment_weights(env)
+  env$flowKeys  <- c(
+    env$nQ ^ (seq(env$nI) - 1L),
+    (env$nQ ^ env$nI) * env$nD ^ (seq(env$nJ) - 1L),
+    (env$nQ ^ env$nI) * (env$nD ^ env$nJ) * env$nW ^ (seq(env$nCO) - 1L)
+  )
+
+  # 5. Optional JSON output
+  if (!is.null(path)) {
+    if (isTRUE(path)) {
+      path <- sprintf("instance%dx%d_%d_001.json", env$nI, env$nJ, env$tau)
+    }
+    json <- jsonlite::toJSON(
+      sapply(sort(names(env)), get, envir = env, simplify = FALSE),
+      pretty = TRUE, auto_unbox = TRUE
+    )
+    writeLines(json, path)
+    message("Instance written to: ", path)
+  }
+
+  invisible(env)
+}
+
 #' Print Info
 #' 
 #' Prints information about the auction.
