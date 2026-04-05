@@ -360,6 +360,46 @@ optimal_assignment <- function(model, obj_, rhs_, params = list(OutputFlag = 0L)
   )
 }
 
+#' Solve a Fully-Specified LP/MIP with HiGHS
+#'
+#' Convenience wrapper for solving a model whose \code{obj}, \code{rhs},
+#' and all other fields have already been set (e.g. from
+#' \code{multiperiod_expansion} after in-place RHS updates).
+#' Mirrors the return format of \code{optimal_assignment}.
+#'
+#' @param model A list with fields \code{A}, \code{obj}, \code{rhs},
+#'   \code{sense}, \code{modelsense}, and optionally \code{lb}, \code{ub},
+#'   \code{vtype}.
+#' @return Named list: \code{objval}, \code{x}, \code{status}.
+#' @export
+solve_lp <- function(model) {
+  lhs_hi <- ifelse(model$sense %in% c(">", "="), model$rhs, -Inf)
+  rhs_hi <- ifelse(model$sense %in% c("<", "="), model$rhs,  Inf)
+  lb     <- if (!is.null(model$lb)) model$lb else rep(0.0, length(model$obj))
+  ub     <- if (!is.null(model$ub)) model$ub else rep(Inf, length(model$obj))
+  types  <- if (!is.null(model$vtype)) model$vtype else rep("C", length(model$obj))
+  A_csc  <- methods::as(model$A, "CsparseMatrix")
+  saved_fd <- begin_suppress_stdout()
+  res <- tryCatch(
+    highs::highs_solve(
+      L       = model$obj,
+      lower   = lb,
+      upper   = ub,
+      A       = A_csc,
+      lhs     = lhs_hi,
+      rhs     = rhs_hi,
+      types   = types,
+      maximum = identical(model$modelsense, "max")
+    ),
+    finally = end_suppress_stdout(saved_fd)
+  )
+  list(
+    objval = if (res$status_message == "Optimal") res$objective_value else NULL,
+    x      = if (res$status_message == "Optimal") res$primal_solution  else NULL,
+    status = toupper(res$status_message)
+  )
+}
+
 #' Example Demo
 #' 
 #' Demonstrates an example scenario.

@@ -1,4 +1,28 @@
+# R session artefacts
 .Rproj.user
 .Rhistory
+.RData
+.Rprofile
+*.Rcheck/
+
+# R build artefacts
+*.tar.gz
+*.tgz
+src/*.o
+src/*.so
+src/*.dll
+
+# Package install log
+INSTALL
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Demo caches (written to tempdir at runtime)
+demo/*.rds
+demo/*.RData
+
+# Scratch / debug files
 archived/
 demo/debug*

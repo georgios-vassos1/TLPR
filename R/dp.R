@@ -1,3 +1,113 @@
+#' Configure DP Environment
+#'
+#' Populates \code{env} with all index arrays, cardinalities, and scenario
+#' structures required by \code{computeEnvironmentRx}, \code{computeEnvironmentCx},
+#' \code{dynamic_programming}, and \code{system_transition}.
+#'
+#' Fixes applied vs. the inline version previously found in demo scripts:
+#' \itemize{
+#'   \item \code{env$I_} and \code{env$J_} are set (\code{seq(nI)}, \code{seq(nJ)}).
+#'   \item \code{env$nScen} is assigned directly (not via \code{with()}).
+#' }
+#'
+#' @param env An R environment containing at minimum \code{R}, \code{nI},
+#'   \code{nJ}, \code{nCO}, and \code{Q}, \code{D}, \code{W} lists with
+#'   \code{$vals} and \code{$prob} entries.
+#' @return \code{env}, invisibly, modified in place.
+#' @export
+dp_config <- function(env) {
+  env$I_ <- seq(env$nI)
+  env$J_ <- seq(env$nJ)
+
+  env$stateSupport         <- 0L:env$R
+  env$extendedStateSupport <- -env$R:env$R
+
+  env$Sdx  <- do.call(TLPR::CartesianProductX, c(
+    replicate(env$nI, seq_along(env$stateSupport),         simplify = FALSE),
+    replicate(env$nJ, seq_along(env$extendedStateSupport), simplify = FALSE)))
+  env$nSdx <- nrow(env$Sdx)
+
+  env$actionSupport <- 0L:env$R
+  env$Adx           <- seq_along(env$actionSupport)
+  env$nAdx          <- length(env$Adx)
+
+  env$nQ <- length(env$Q$vals)
+  env$nD <- length(env$D$vals)
+  env$nW <- length(env$W$vals)
+
+  env$scndx <- do.call(TLPR::CartesianProductX, c(
+    replicate(env$nI,  seq(env$nQ), simplify = FALSE),
+    replicate(env$nJ,  seq(env$nD), simplify = FALSE),
+    replicate(env$nCO, seq(env$nW), simplify = FALSE)))
+  env$scnpb <- apply(env$scndx, 1L, function(x)
+    prod(env$Q$prob[x[seq(env$nI)]],
+         env$D$prob[x[env$nI + seq(env$nJ)]],
+         env$W$prob[x[env$nI + env$nJ + 1L]]))
+
+  env$Qdx  <- do.call(TLPR::CartesianProductX, replicate(env$nI,  seq(env$nQ), simplify = FALSE))
+  env$Ddx  <- do.call(TLPR::CartesianProductX, replicate(env$nJ,  seq(env$nD), simplify = FALSE))
+  env$Wdx  <- do.call(TLPR::CartesianProductX, replicate(env$nCO, seq(env$nW), simplify = FALSE))
+  env$nQdx <- nrow(env$Qdx)
+  env$nDdx <- nrow(env$Ddx)
+  env$nWdx <- nrow(env$Wdx)
+  env$nScen <- env$nQdx * env$nDdx * env$nWdx
+
+  invisible(env)
+}
+
+#' Stochastic Backward Induction
+#'
+#' Runs backward induction over the pre-computed transit table, integrating
+#' over all feasible scenarios using \code{env$scnpb} as weights.
+#'
+#' @param env Environment produced by \code{dp_config}.
+#' @param transit Transit matrix (\code{tau*nSdx*nAdx*nScen x 6}) with columns
+#'   \code{(next_i, objval, i, j, kdx, t)}.
+#' @param ... Unused; reserved for future extension.
+#' @return Named list: \code{V}, \code{Q}, \code{pi_star}, \code{pi_rand}.
+#' @export
+dynamic_programming <- function(env, transit, ...) {
+  V       <- matrix(NA, nrow = env$tau + 1L, ncol = env$nSdx)
+  Q       <- matrix(NA, nrow = env$tau,      ncol = env$nSdx * env$nAdx)
+  pi_rand <- matrix(NA, nrow = env$tau,      ncol = env$nSdx * env$nAdx)
+  pi_star <- matrix(NA, nrow = env$tau,      ncol = env$nSdx * env$nAdx)
+
+  V[env$tau + 1L, ] <- -c(
+    cbind(
+      apply(env$Sdx[, env$I_,          drop = FALSE], 2L, function(sdx) env$stateSupport[sdx]),
+      apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L, function(sdx) pmax(env$extendedStateSupport[sdx], 0L)),
+     -apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L, function(sdx) pmin(env$extendedStateSupport[sdx], 0L))
+    ) %*% c(env$alpha))
+
+  for (t in seq(env$tau, 1L)) {
+    for (i in seq(env$nSdx)) {
+      hold.t <- h.t(env,
+                    env$stateSupport[env$Sdx[i, env$I_]],
+                    env$extendedStateSupport[env$Sdx[i, env$nI + env$J_]],
+                    env$alpha)
+      for (j in seq(env$nAdx)) {
+        p      <- (((t - 1L) * env$nSdx + (i - 1L)) * env$nAdx + (j - 1L)) * env$nScen
+        next_p <- p + seq(env$nScen)
+        kdx    <- which(!is.na(transit[next_p, 1L]))
+        if (length(kdx) == 0L) next
+
+        next_i <- transit[next_p, 1L][kdx]
+        costs  <- transit[next_p, 2L][kdx]
+        prob   <- env$scnpb[kdx] / sum(env$scnpb[kdx])
+
+        Q[t, (i - 1L) * env$nAdx + j] <- -hold.t - sum(prob * costs) + sum(V[t + 1L, next_i] * prob)
+      }
+      idx    <- (i - 1L) * env$nAdx + env$Adx
+      V[t, i] <- max(Q[t, idx], na.rm = TRUE)
+      Qxs     <- Q[t, idx] - min(Q[t, idx], na.rm = TRUE) + 1.0
+      pi_rand[t, idx] <- data.table::fcoalesce(Qxs / sum(Qxs, na.rm = TRUE), 0.0)
+      pi_star[t, idx] <- data.table::fcoalesce(
+        as.numeric(Q[t, idx] == max(Q[t, idx], na.rm = TRUE)), 0.0)
+    }
+  }
+  list("V" = V, "Q" = Q, "pi_star" = pi_star, "pi_rand" = pi_rand)
+}
+
 #' Generate Adjustment Weights
 #'
 #' This function generates a vector of adjustment weights based on the input environment `env`. 
