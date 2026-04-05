@@ -297,7 +297,7 @@ generate_instance <- function(
     }
     json <- jsonlite::toJSON(
       sapply(sort(names(env)), get, envir = env, simplify = FALSE),
-      pretty = TRUE, auto_unbox = TRUE
+      pretty = TRUE
     )
     writeLines(json, path)
     message("Instance written to: ", path)
