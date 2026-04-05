@@ -70,11 +70,13 @@ simulate_system <- function(env, pi_trans, pi_alloc, args, Q = NULL, D = NULL, e
 
     # Transition mechanism
     args[["obj_"]] <- c(env$CTb, env$CTo[t,])
-    args[["n"]]    <- q[t]
     args[["x"]]    <- c(env$Cb[t,], env$Co[t,])
 
     for (pdx in seq_along(pi_alloc)) {
-      args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q[t])
+      # Cap shared transport volume to what is physically available for this policy
+      q_pdx <- min(q[t], sum(S.I[idx, pdx] + Q[idx]))
+      args[["n"]]    <- q_pdx
+      args[["rhs_"]] <- c(env$Cb[t,], env$Co[t,], env$R-S.J[jdx,pdx], S.I[idx,pdx]+Q[idx], q_pdx)
 
       # Optimize for policy index pdx
       optx <- do.call(pi_alloc[[pdx]], args)

@@ -349,7 +349,7 @@ compute_environment <- function(env, env.dp, t, start, end, scenaria, weights, F
         next_i <- stateIdx(
           env,
           pmax(pmin(env.dp$SI_[env.dp$Sdx[i,env$I_]] + q - xI, env$R), 0L),
-          pmin(pmax(env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]] - d, -env$R) + xJ, env$R),
+          pmin(pmax(env.dp$SJ_[env.dp$Sdx[i,env$nI+env$J_]] - d + xJ, -env$R), env$R),
           env.dp$max.S, weights)
 
         # Store into the transition matrix (objval only; h.t is added by dynamic_programming)

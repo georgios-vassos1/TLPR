@@ -82,6 +82,10 @@ eval_portfolio <- function(env, model, A_, S0, Q, D, ...) {
     obj_ <- c(env$CTb, env$CTo[t,])
     rhs_[seq(offdx[1L])] <- c(env$Cb[t,], env$Co[t,])
     for (i in seq(m)) {
+      if (anyNA(S_[[t]][i, ])) {
+        S_[[t+1L]][(i-1L)*nA + seq(nA), ] <- NA_real_
+        next
+      }
       rhs_[offdx[1L]+env$J_] <- env$R - S_[[t]][i, env$nI+env$J_]
       rhs_[offdx[2L]+env$I_] <- S_[[t]][i, env$I_] + Q[(t-1L)*env$nI+env$I_]
       for (j in seq(nA)) {
@@ -90,16 +94,17 @@ eval_portfolio <- function(env, model, A_, S0, Q, D, ...) {
         if (optx$status == "OPTIMAL") {
           cost[[t]][i,j] <- optx$objval
           allocation[[t]][((i-1L)*nA+(j-1L))*env$nvars+seq(env$nvars)] <- optx$x
+          # X.I: total shipped OUT of each origin i (sum over routes from i)
+          X.I <- unlist(lapply(env$from_i, function(k) sum(optx$x[k])))
+          # X.J: total arriving AT each destination j (sum over routes to j)
+          X.J <- unlist(lapply(env$to_j,   function(k) sum(optx$x[k])))
+          # Transition
+          S_[[t+1L]][(i-1L)*nA+j, env$I_]        <- S_[[t]][i, env$I_]        + Q[(t-1L)*env$nI+env$I_] - X.I
+          S_[[t+1L]][(i-1L)*nA+j, env$nI+env$J_] <- S_[[t]][i, env$nI+env$J_] - D[(t-1L)*env$nJ+env$J_] + X.J
         } else {
           message(optx$status)
+          S_[[t+1L]][(i-1L)*nA+j, ] <- NA_real_
         }
-        # X.I: total shipped OUT of each origin i (sum over routes from i)
-        X.I <- unlist(lapply(env$from_i, function(k) sum(optx$x[k])))
-        # X.J: total arriving AT each destination j (sum over routes to j)
-        X.J <- unlist(lapply(env$to_j,   function(k) sum(optx$x[k])))
-        # Transition
-        S_[[t+1L]][(i-1L)*nA+j, env$I_]        <- S_[[t]][i, env$I_]        + Q[(t-1L)*env$nI+env$I_] - X.I
-        S_[[t+1L]][(i-1L)*nA+j, env$nI+env$J_] <- S_[[t]][i, env$nI+env$J_] - D[(t-1L)*env$nJ+env$J_] + X.J
       }
     }
   }

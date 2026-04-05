@@ -67,12 +67,12 @@ consolidate_idx <- function(lists) {
 chunkup <- function(n, k) {
   chunk_size <- n %/% k
   chunks <- seq(1L, n, by = chunk_size)
-  if (length(chunks) < k + 1) {
+  if (length(chunks) < k + 1L) {
     chunks <- c(chunks, n + 1L)
   } else {
-    chunks[k + 1] <- n + 1L
+    chunks[k + 1L] <- n + 1L
   }
-  chunks
+  chunks[seq_len(k + 1L)]
 }
 
 #' Compute Graph Data Table
