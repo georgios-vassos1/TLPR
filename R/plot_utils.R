@@ -51,18 +51,24 @@ create_gradient_palette <- function(n, norm_=NULL, low = "#80FFFF", high = "#FF8
 #'
 #' @export
 plotVsurface <- function(env, V.t, t, theta = 30, phi = 30) {
+  # Reshape flat state vector to nSI x nSJ matrix (entry state varies fastest)
+  z_mat <- matrix(V.t, nrow = length(env$stateSupport))
+
   # Normalize the z-values to the range [0, 1] for mapping to colors
-  norm_V <- (V.t - min(V.t, na.rm = T)) / (max(V.t, na.rm = T) - min(V.t, na.rm = T))
+  norm_V <- (V.t - min(V.t, na.rm = TRUE)) / (max(V.t, na.rm = TRUE) - min(V.t, na.rm = TRUE))
 
   # Map normalized z-values to colors in the gradient palette
   vertex_colors <- create_gradient_palette(1000L, sort(norm_V))
 
   # Create a 3D plot using plot3D
-  plot3D::persp3D(x = env$stateSupport, y = env$extendedStateSupport, z = t(V.t), col = vertex_colors, theta = theta, phi = phi,
-                  xlab = "Entry State", ylab = "Exit State", zlab = "V", main = paste0("State Value Surface at t = ", t))
+  plot3D::persp3D(x = env$stateSupport, y = env$extendedStateSupport, z = z_mat,
+                  col = vertex_colors, theta = theta, phi = phi,
+                  xlab = "Entry State", ylab = "Exit State", zlab = "V",
+                  main = paste0("State Value Surface at t = ", t))
 
   # Add contours to the surface
-  plot3D::contour3D(x = env$stateSupport, y = env$extendedStateSupport, z = t(V.t), colvar = t(V.t), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
+  plot3D::contour3D(x = env$stateSupport, y = env$extendedStateSupport, z = z_mat,
+                    colvar = z_mat, add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
 }
 
 #' Plot Action Value Surface for Fixed Entry State
@@ -85,16 +91,27 @@ plotVsurface <- function(env, V.t, t, theta = 30, phi = 30) {
 #' plotQsurfaceForFixedEntry(Qx, entry_state = 2, t = 5)
 #'
 #' @export
-plotQsurfaceForFixedEntry <- function(env, Qx, entry_state, t, theta = 66, phi = 30, zlab = 'Action Value') {
-  ## Plot the action value surface at time t
-  norm_Q <- (Qx - min(Qx, na.rm = T)) / (max(Qx, na.rm = T) - min(Qx, na.rm = T))
-
+plotQsurfaceForFixedEntry <- function(env, Q, entry_state, t, theta = 66, phi = 30, zlab = 'Action Value') {
+  ## Slice Q[t, ] for all states with this entry state index, all actions
+  ## Q indexing: Q[t, (state_i - 1)*nAdx + action_j]
+  ## Sdx[, 1] = entry state index; entry varies fastest so s_idx is evenly spaced
+  s_idx <- which(env$Sdx[, 1L] == entry_state)  # nSJ state indices
+  Qt    <- Q[t, ]
+  z_mat <- matrix(NA_real_, nrow = length(s_idx), ncol = env$nAdx)
+  for (k in seq_along(s_idx)) {
+    z_mat[k, ] <- Qt[(s_idx[k] - 1L) * env$nAdx + seq(env$nAdx)]
+  }
+  # z_mat is nSJ x nAdx: rows = exit states, cols = actions
+  norm_Q        <- (z_mat - min(z_mat, na.rm = TRUE)) / (max(z_mat, na.rm = TRUE) - min(z_mat, na.rm = TRUE))
   vertex_colors <- create_gradient_palette(1000L, sort(norm_Q))
 
-  plot3D::persp3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), col = vertex_colors, theta = theta, phi = phi,
-          xlab = "Exit State", ylab = "Action", zlab = zlab, main = paste0("Action Value (Entry State: ", entry_state, ") at t = ", t))
+  plot3D::persp3D(x = env$extendedStateSupport, y = env$actionSupport, z = z_mat,
+                  col = vertex_colors, theta = theta, phi = phi,
+                  xlab = "Exit State", ylab = "Action", zlab = zlab,
+                  main = paste0("Action Value (Entry State: ", entry_state, ") at t = ", t))
 
-  plot3D::contour3D(x = env$extendedStateSupport, y = env$actionSupport, z = t(Qx), colvar = t(Qx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
+  plot3D::contour3D(x = env$extendedStateSupport, y = env$actionSupport, z = z_mat,
+                    colvar = z_mat, add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
 }
 
 #' Plot Action Value Surface for Fixed Exit State
@@ -117,16 +134,26 @@ plotQsurfaceForFixedEntry <- function(env, Qx, entry_state, t, theta = 66, phi =
 #' plotQsurfaceForFixedExit(Qx, exit_state = 3, t = 5)
 #'
 #' @export
-plotQsurfaceForFixedExit <- function(env, Qx, exit_state, t, theta = 66, phi = 30, zlab = 'Action Value') {
-  ## Plot the action value surface at time t
-  norm_Q <- (Qx - min(Qx, na.rm = T)) / (max(Qx, na.rm = T) - min(Qx, na.rm = T))
-
+plotQsurfaceForFixedExit <- function(env, Q, exit_state, t, theta = 66, phi = 30, zlab = 'Action Value') {
+  ## Slice Q[t, ] for all states with this exit state index, all actions
+  ## Sdx[, 2] = exit state index; entry varies fastest within each exit-state block
+  s_idx <- which(env$Sdx[, 2L] == exit_state)  # nSI state indices
+  Qt    <- Q[t, ]
+  z_mat <- matrix(NA_real_, nrow = length(s_idx), ncol = env$nAdx)
+  for (k in seq_along(s_idx)) {
+    z_mat[k, ] <- Qt[(s_idx[k] - 1L) * env$nAdx + seq(env$nAdx)]
+  }
+  # z_mat is nSI x nAdx: rows = entry states, cols = actions
+  norm_Q        <- (z_mat - min(z_mat, na.rm = TRUE)) / (max(z_mat, na.rm = TRUE) - min(z_mat, na.rm = TRUE))
   vertex_colors <- create_gradient_palette(1000L, sort(norm_Q))
 
-  plot3D::persp3D(x = env$stateSupport, y = env$actionSupport, z = t(Qx), col = vertex_colors, theta = theta, phi = phi,
-          xlab = "Entry State", ylab = "Action", zlab = zlab, main = paste0("Action Value (Exit State: ", exit_state, ") at t = ", t))
+  plot3D::persp3D(x = env$stateSupport, y = env$actionSupport, z = z_mat,
+                  col = vertex_colors, theta = theta, phi = phi,
+                  xlab = "Entry State", ylab = "Action", zlab = zlab,
+                  main = paste0("Action Value (Exit State: ", exit_state, ") at t = ", t))
 
-  plot3D::contour3D(x = env$stateSupport, y = env$actionSupport, z = t(Qx), colvar = t(Qx), add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
+  plot3D::contour3D(x = env$stateSupport, y = env$actionSupport, z = z_mat,
+                    colvar = z_mat, add = TRUE, col = "darkblue", colkey = FALSE, lwd = 2)
 }
 
 #' Plot 2x2 Instance

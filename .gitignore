@@ -26,3 +26,10 @@ demo/*.RData
 # Scratch / debug files
 archived/
 demo/debug*
+
+# Output files
+*.png
+*.pdf
+*.svg
+*.csv
+*.xlsx
