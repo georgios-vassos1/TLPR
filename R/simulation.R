@@ -64,7 +64,7 @@ simulate_system <- function(env, pi_trans, pi_alloc, args, Q = NULL, D = NULL, e
 
     # Transportation policy
     args[["capacity"]] <- sum(env$Cb[t,])+sum(env$Co[t,])
-    args[["limit"]]    <- colSums(S.I[idx,,drop=F]+Q[idx])
+    args[["limit"]]    <- sum(S.I[idx, 1L] + Q[idx])
 
     q[t] <- do.call(pi_trans, args)
 

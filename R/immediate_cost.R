@@ -187,6 +187,9 @@ random_assignment <- function(n, k, obj_, ...) {
       "status" = "RANDOM"
     ))
   }
+  if (k == 1L) {
+    return(list("x" = n, "objval" = c(obj_ %*% n), "status" = "RANDOM"))
+  }
   # Generate n-1 random integers between 1 and n-1
   allocation <- sort(sample(n-1L, k-1L, replace = TRUE))
   # Calculate the differences between consecutive elements

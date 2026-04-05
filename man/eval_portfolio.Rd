@@ -4,29 +4,26 @@
 \alias{eval_portfolio}
 \title{Evaluating a portfolio contract with state-dependent constraints}
 \usage{
-eval_portfolio(env, A_, S0, Q, D, ...)
+eval_portfolio(env, model, A_, S0, Q, D, ...)
 }
 \arguments{
 \item{env}{The environment containing the parameters of the portfolio contract.}
 
+\item{model}{The LP model created by \code{create_model(env)}.}
+
 \item{A_}{A vector containing the values of the assets.}
 
-\item{S0}{Initial state vector.}
+\item{S0}{Initial state vector (1 x (nI + nJ) matrix).}
 
-\item{Q}{Vector representing inflow constraints.}
+\item{Q}{Vector of supply realisations (length tau * nI).}
 
-\item{D}{Vector representing outflow constraints.}
+\item{D}{Vector of demand realisations (length tau * nJ).}
 
-\item{...}{Additional arguments to be passed.}
+\item{...}{Additional arguments (not used).}
 }
 \value{
 A list containing the states, cost, and allocation of the portfolio contract.
 }
 \description{
 This function evaluates a portfolio contract considering state-dependent constraints.
-}
-\details{
-This function evaluates a portfolio contract considering state-dependent constraints.
-It computes the cost and allocation for each asset value provided in the vector \code{A_} and based on the given state constraints.
-It also updates the state vector according to the transactions made during each period.
 }

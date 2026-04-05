@@ -4,10 +4,12 @@
 \alias{eval_stateless_portfolio}
 \title{Evaluating a portfolio contract without state-dependent constraints}
 \usage{
-eval_stateless_portfolio(env, A_, plot = FALSE)
+eval_stateless_portfolio(env, model, A_, plot = FALSE)
 }
 \arguments{
 \item{env}{The environment containing the parameters of the portfolio contract.}
+
+\item{model}{The LP model created by \code{create_model(env)}.}
 
 \item{A_}{A vector containing the values of the assets.}
 

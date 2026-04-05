@@ -42,7 +42,7 @@ dp_config <- function(env) {
   env$scnpb <- apply(env$scndx, 1L, function(x)
     prod(env$Q$prob[x[seq(env$nI)]],
          env$D$prob[x[env$nI + seq(env$nJ)]],
-         env$W$prob[x[env$nI + env$nJ + 1L]]))
+         env$W$prob[x[env$nI + env$nJ + seq(env$nCO)]]))
 
   env$Qdx  <- do.call(TLPR::CartesianProductX, replicate(env$nI,  seq(env$nQ), simplify = FALSE))
   env$Ddx  <- do.call(TLPR::CartesianProductX, replicate(env$nJ,  seq(env$nD), simplify = FALSE))
@@ -51,6 +51,13 @@ dp_config <- function(env) {
   env$nDdx <- nrow(env$Ddx)
   env$nWdx <- nrow(env$Wdx)
   env$nScen <- env$nQdx * env$nDdx * env$nWdx
+
+  # Mixed-radix keys for encoding (Qdx, Ddx, Wdx) sub-indices into a flat
+  # scenario index.  Used by computeEnvironmentRx to compute kdx.
+  env$flowKeys <- c(
+    env$nQ  ^ (seq(env$nI)  - 1L),
+    env$nQdx * env$nD  ^ (seq(env$nJ)  - 1L),
+    env$nQdx * env$nDdx * env$nW ^ (seq(env$nCO) - 1L))
 
   invisible(env)
 }
@@ -93,13 +100,14 @@ dynamic_programming <- function(env, transit, ...) {
 
         next_i <- transit[next_p, 1L][kdx]
         costs  <- transit[next_p, 2L][kdx]
-        prob   <- env$scnpb[kdx] / sum(env$scnpb[kdx])
+        prob   <- env$scnpb[kdx]
 
         Q[t, (i - 1L) * env$nAdx + j] <- -hold.t - sum(prob * costs) + sum(V[t + 1L, next_i] * prob)
       }
       idx    <- (i - 1L) * env$nAdx + env$Adx
       V[t, i] <- max(Q[t, idx], na.rm = TRUE)
       Qxs     <- Q[t, idx] - min(Q[t, idx], na.rm = TRUE) + 1.0
+      Qxs[is.nan(Qxs)] <- NA_real_
       pi_rand[t, idx] <- data.table::fcoalesce(Qxs / sum(Qxs, na.rm = TRUE), 0.0)
       pi_star[t, idx] <- data.table::fcoalesce(
         as.numeric(Q[t, idx] == max(Q[t, idx], na.rm = TRUE)), 0.0)

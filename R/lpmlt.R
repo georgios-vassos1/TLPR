@@ -124,7 +124,7 @@ multiperiod_expansion <- function(env, Q, D, A, obj, rhs, sns) {
   obj.tau <- numeric(ncol(A.tau))
   rhs.tau <- numeric(nrow(A.tau))
 
-  obj.tau[seq(ncol(A) - offset)] <- obj[seq(ncol(A) - offset)]
+  obj.tau[seq(ncol(A) - offset)] <- c(env$alpha, env$CTb, env$CTo[1L, ])
   rhs.tau[seq(nrow(A))] <- rhs
   for (t in seq(2L, env$tau)) {
     rdx <- (t - 1L) * nrow(A) + seq(nrow(A))
@@ -170,7 +170,7 @@ post_hoc_simulation <- function(env, x) {
     j <- (t - 1L) * env$nJ + env$J_
     idx <- (t - 1L) * blk + seq(blk)
     S.I[i, 1L] <- x[idx][env$I_]
-    S.J[j, 1L] <- c(Reduce('-', x[idx][env$nI + env$J_]), Reduce('-', x[idx][env$nI + env$nJ + env$J_]))
+    S.J[j, 1L] <- x[idx][env$nI + (env$J_ - 1L)*2L + 1L] - x[idx][env$nI + (env$J_ - 1L)*2L + 2L]
     
     if (t > env$tau) break
     allocation[(t - 1L) * env$nvars + seq(env$nvars), 1L] <- x[idx][offset + seq(env$nvars)]

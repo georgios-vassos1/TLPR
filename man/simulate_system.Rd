@@ -4,7 +4,16 @@
 \alias{simulate_system}
 \title{Simulate System}
 \usage{
-simulate_system(env, pi_trans, pi_alloc, args, Q = NULL, D = NULL, ...)
+simulate_system(
+  env,
+  pi_trans,
+  pi_alloc,
+  args,
+  Q = NULL,
+  D = NULL,
+  exog = NULL,
+  ...
+)
 }
 \arguments{
 \item{env}{A list containing the environment variables including time horizon, resource limits, and cost parameters.}
@@ -15,13 +24,14 @@ simulate_system(env, pi_trans, pi_alloc, args, Q = NULL, D = NULL, ...)
 
 \item{args}{A list of additional arguments to be passed to the policy functions.}
 
-\item{Q}{A matrix representing the exogenous state related to supply (optional). If NULL, it will be sampled based on the exog parameter.}
+\item{Q}{A matrix representing the exogenous state related to supply (optional). If NULL, sampled via \code{exog}.}
 
-\item{D}{A matrix representing the exogenous state related to demand (optional). If NULL, it will be sampled based on the exog parameter.}
+\item{D}{A matrix representing the exogenous state related to demand (optional). If NULL, sampled via \code{exog}.}
 
-\item{...}{Additional arguments (not used in the function directly).}
+\item{exog}{A named list with elements \code{Q} and \code{D}, each containing \code{func} and \code{params}
+used to sample exogenous states when \code{Q} or \code{D} are NULL.}
 
-\item{exog}{A list of functions and parameters for sampling exogenous states if Q or D are not provided.}
+\item{...}{Additional arguments (not used).}
 }
 \value{
 A list containing the simulation results, including costs, allocations, state matrices, and the status of the simulation.
