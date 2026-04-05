@@ -18,7 +18,14 @@ suppressPackageStartupMessages({
 })
 
 ## -- Config --------------------------------------------------
-if (!exists("JSON_PATH")) source(file.path(dirname(sys.frame(1)$ofile), "config/instance1x1_4.R"))
+.demo_dir <- local({
+  ofiles <- Filter(Negate(is.null), lapply(sys.frames(), `[[`, "ofile"))
+  if (length(ofiles)) dirname(normalizePath(tail(ofiles, 1L)[[1L]])) else {
+    farg <- grep("--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+    if (length(farg)) dirname(normalizePath(sub("--file=", "", farg[1L]))) else getwd()
+  }
+})
+if (!exists("JSON_PATH")) source(file.path(.demo_dir, "config/instance1x1_4.R"))
 
 ## -- Instance ------------------------------------------------
 env <- new.env()
