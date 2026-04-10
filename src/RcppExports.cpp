@@ -252,6 +252,63 @@ BEGIN_RCPP
 END_RCPP
 }
 
+// loadProblemDataCx
+SEXP loadProblemDataCx(const std::string& jsonFile);
+RcppExport SEXP _TLPR_loadProblemDataCx(SEXP jsonFileSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type jsonFile(jsonFileSEXP);
+    rcpp_result_gen = Rcpp::wrap(loadProblemDataCx(jsonFile));
+    return rcpp_result_gen;
+END_RCPP
+}
+// computeEnvironmentPtr
+Eigen::MatrixXd computeEnvironmentPtr(SEXP problem_ptr, const int& t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, int numThreads);
+RcppExport SEXP _TLPR_computeEnvironmentPtr(SEXP problem_ptrSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP numThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type problem_ptr(problem_ptrSEXP);
+    Rcpp::traits::input_parameter< const int& >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeEnvironmentPtr(problem_ptr, t, stateSupport, flowSupport, numThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// bellmanUpdatePtr
+Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, const int& t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads);
+RcppExport SEXP _TLPR_bellmanUpdatePtr(SEXP problem_ptrSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type problem_ptr(problem_ptrSEXP);
+    Rcpp::traits::input_parameter< const int& >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type scnpb(scnpbSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type V_next(V_nextSEXP);
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(bellmanUpdatePtr(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// solveModelCx
+Rcpp::List solveModelCx(SEXP model_ptr, SEXP transport_ptr);
+RcppExport SEXP _TLPR_solveModelCx(SEXP model_ptrSEXP, SEXP transport_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_ptr(model_ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type transport_ptr(transport_ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(solveModelCx(model_ptr, transport_ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+
 static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_CartesianProductRcpp", (DL_FUNC) &_TLPR_CartesianProductRcpp, 1},
     {"_TLPR_CartesianProductRcppParallel", (DL_FUNC) &_TLPR_CartesianProductRcppParallel, 2},
@@ -270,6 +327,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_begin_suppress_stdout", (DL_FUNC) &_TLPR_begin_suppress_stdout, 0},
     {"_TLPR_end_suppress_stdout", (DL_FUNC) &_TLPR_end_suppress_stdout, 1},
     {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 4},
+    {"_TLPR_loadProblemDataCx", (DL_FUNC) &_TLPR_loadProblemDataCx, 1},
+    {"_TLPR_computeEnvironmentPtr", (DL_FUNC) &_TLPR_computeEnvironmentPtr, 5},
+    {"_TLPR_bellmanUpdatePtr", (DL_FUNC) &_TLPR_bellmanUpdatePtr, 8},
+    {"_TLPR_solveModelCx", (DL_FUNC) &_TLPR_solveModelCx, 2},
     {NULL, NULL, 0}
 };
 

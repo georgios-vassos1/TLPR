@@ -97,3 +97,27 @@ rmvnorm <- function(n, mean, covar, nThreads = 8L) {
     .Call('_TLPR_rmvnorm', PACKAGE = 'TLPR', n, mean, covar, nThreads)
 }
 
+#' @useDynLib TLPR
+#' @export
+loadProblemDataCx <- function(jsonFile) {
+    .Call('_TLPR_loadProblemDataCx', PACKAGE = 'TLPR', jsonFile)
+}
+
+#' @useDynLib TLPR
+#' @export
+computeEnvironmentPtr <- function(problem_ptr, t, stateSupport, flowSupport, numThreads = 8L) {
+    .Call('_TLPR_computeEnvironmentPtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, numThreads)
+}
+
+#' @useDynLib TLPR
+#' @export
+bellmanUpdatePtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L) {
+    .Call('_TLPR_bellmanUpdatePtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads)
+}
+
+#' @useDynLib TLPR
+#' @export
+solveModelCx <- function(model_ptr, transport_ptr) {
+    .Call('_TLPR_solveModelCx', PACKAGE = 'TLPR', model_ptr, transport_ptr)
+}
+

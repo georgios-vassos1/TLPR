@@ -414,3 +414,55 @@ rolling_dp_cx <- function(env, jsonFile, numThreads = 8L) {
 
   list("V" = V, "Q" = Q, "pi_star" = pi_star, "pi_rand" = pi_rand)
 }
+
+#' Rolling DP via XPtr Bellman Updates
+#'
+#' XPtr-based variant of \code{rolling_dp_cx}. Loads the instance JSON once
+#' into a \code{ProblemData} external pointer and passes it to
+#' \code{bellmanUpdatePtr} each period, eliminating repeated file I/O and
+#' JSON parsing.
+#'
+#' @param env Environment produced by \code{dp_config}.
+#' @param jsonFile Path to the instance JSON file.
+#' @param numThreads Number of OMP threads. Default 8.
+#' @return Same structure as \code{rolling_dp_cx}: a named list with
+#'   \code{V}, \code{Q}, \code{pi_star}, \code{pi_rand}.
+#' @export
+rolling_dp_ptr <- function(env, jsonFile, numThreads = 8L) {
+
+  prob <- loadProblemDataCx(jsonFile)
+
+  V       <- matrix(NA_real_, nrow = env$tau + 1L, ncol = env$nSdx)
+  Q       <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
+  pi_star <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
+  pi_rand <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
+
+  V[env$tau + 1L, ] <- -c(
+    cbind(
+      apply(env$Sdx[, env$I_,          drop = FALSE], 2L,
+            function(sdx) env$stateSupport[sdx]),
+      apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L,
+            function(sdx) pmax(env$extendedStateSupport[sdx], 0L)),
+     -apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L,
+            function(sdx) pmin(env$extendedStateSupport[sdx], 0L))
+    ) %*% c(env$alpha))
+
+  for (t in seq(env$tau, 1L)) {
+    step <- bellmanUpdatePtr(
+      problem_ptr  = prob,
+      t            = t - 1L,
+      stateSupport = as.double(env$stateSupport),
+      flowSupport  = as.double(env$Q$vals),
+      scnpb        = env$scnpb,
+      alpha        = env$alpha,
+      V_next       = V[t + 1L, ],
+      numThreads   = numThreads
+    )
+    V      [t, ] <- step$V_t
+    Q      [t, ] <- step$Q_t
+    pi_star[t, ] <- step$pi_star_t
+    pi_rand[t, ] <- step$pi_rand_t
+  }
+
+  list("V" = V, "Q" = Q, "pi_star" = pi_star, "pi_rand" = pi_rand)
+}
