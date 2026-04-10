@@ -1268,30 +1268,60 @@ std::vector<int> updateStateIdx(const std::vector<int>& stateIdx, const std::vec
   return nextStateIdx;
 }
 
-// Redirect C-level stdout to /dev/null; returns the saved fd for restoration.
-// Used to suppress the HiGHS startup banner and deprecated-API warning printed
-// by the 'highs' R package before option-setting takes effect.
+// RAII guard that redirects C-level stdout to /dev/null for its lifetime.
+// Restores the original fd in the destructor — safe even if an exception is
+// thrown. C++ code should prefer this over the exported begin/end pair.
+struct StdoutSuppressor {
+  int saved_fd{-1};
+
+  StdoutSuppressor() {
+    fflush(stdout);
+    saved_fd = dup(1); // NOLINT(cppcoreguidelines-prefer-member-initializer)
+    if (saved_fd == -1) {
+      return;
+    }
+    int devnull = open("/dev/null", O_WRONLY);
+    if (devnull == -1) {
+      close(saved_fd);
+      saved_fd = -1;
+      return;
+    }
+    if (dup2(devnull, 1) == -1) {
+      close(devnull);
+      close(saved_fd);
+      saved_fd = -1;
+      return;
+    }
+    close(devnull);
+  }
+
+  ~StdoutSuppressor() {
+    if (saved_fd == -1) {
+      return;
+    }
+    fflush(stdout);
+    dup2(saved_fd, 1);
+    close(saved_fd);
+  }
+
+  StdoutSuppressor(const StdoutSuppressor&)            = delete;
+  StdoutSuppressor& operator=(const StdoutSuppressor&) = delete;
+  StdoutSuppressor(StdoutSuppressor&&)                 = delete;
+  StdoutSuppressor& operator=(StdoutSuppressor&&)      = delete;
+};
+
+// begin_suppress_stdout / end_suppress_stdout are exported to R for use in
+// optimal_assignment (R/immediate_cost.R). They delegate to StdoutSuppressor
+// so the POSIX logic lives in one place. C++ code should use
+// StdoutSuppressor directly.
 //' @useDynLib TLPR
 //' @export
 // [[Rcpp::export]]
 int begin_suppress_stdout() {
-  fflush(stdout);
-  int saved = dup(1);
-  if (saved == -1) {
-    return -1;
-  }
-  int devnull = open("/dev/null", O_WRONLY);
-  if (devnull == -1) {
-    close(saved);
-    return -1;
-  }
-  if (dup2(devnull, 1) == -1) {
-    close(devnull);
-    close(saved);
-    return -1;
-  }
-  close(devnull);
-  return saved;
+  StdoutSuppressor s;
+  int fd = s.saved_fd;
+  s.saved_fd = -1; // disarm destructor — caller (R) takes ownership of fd
+  return fd;
 }
 
 //' @useDynLib TLPR
