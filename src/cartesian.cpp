@@ -21,7 +21,8 @@ std::vector<std::vector<int>> CartesianProductIntSTL(const std::vector<std::vect
   // Compute the total number of combinations and reserve memory
   size_t totalCombinations = 1;
   for (const auto& vector : vectors) {
-    if (vector.empty()) return results;
+    if (vector.empty())
+      return results;
     totalCombinations *= vector.size();
   }
   results.reserve(totalCombinations);
@@ -41,13 +42,15 @@ std::vector<std::vector<int>> CartesianProductIntSTL(const std::vector<std::vect
 }
 
 // Function using only STL containers
-std::vector<std::vector<double>> CartesianProductDoubleSTL(const std::vector<std::vector<double>>& vectors) {
+std::vector<std::vector<double>>
+CartesianProductDoubleSTL(const std::vector<std::vector<double>>& vectors) {
   std::vector<std::vector<double>> results;
 
   // Compute the total number of combinations and reserve memory
   size_t totalCombinations = 1;
   for (const auto& vector : vectors) {
-    if (vector.empty()) return results;
+    if (vector.empty())
+      return results;
     totalCombinations *= vector.size();
   }
   results.reserve(totalCombinations);
@@ -68,12 +71,14 @@ std::vector<std::vector<double>> CartesianProductDoubleSTL(const std::vector<std
 
 // Function returning an Eigen matrix to avoid type conversion to Rcpp supported container
 Eigen::MatrixXi CartesianProductInt(const std::vector<std::vector<int>>& vectors) {
-  if (vectors.empty()) return Eigen::MatrixXi(0, 0);
+  if (vectors.empty())
+    return Eigen::MatrixXi(0, 0);
 
   // Compute the total number of combinations
   size_t totalCombinations = 1;
   for (const auto& vec : vectors) {
-    if (vec.empty()) return Eigen::MatrixXi(0, vectors.size()); // Early return if any input vector is empty
+    if (vec.empty())
+      return Eigen::MatrixXi(0, vectors.size()); // Early return if any input vector is empty
     totalCombinations *= vec.size();
   }
 
@@ -93,7 +98,8 @@ Eigen::MatrixXi CartesianProductInt(const std::vector<std::vector<int>>& vectors
 }
 
 // Function to generate a range of combinations in parallel
-void generateCombinations(const std::vector<std::vector<int>>& vectors, Eigen::MatrixXi& results, size_t start, size_t end) {
+void generateCombinations(const std::vector<std::vector<int>>& vectors, Eigen::MatrixXi& results,
+                          size_t start, size_t end) {
 
   for (size_t count = start; count < end; ++count) {
     size_t temp = count;
@@ -106,13 +112,16 @@ void generateCombinations(const std::vector<std::vector<int>>& vectors, Eigen::M
 }
 
 // Function to generate all combinations in parallel
-Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>& vectors, const size_t numThreads) {
-  if (vectors.empty()) return Eigen::MatrixXi(0, 0);
+Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>& vectors,
+                                            const size_t numThreads) {
+  if (vectors.empty())
+    return Eigen::MatrixXi(0, 0);
 
   // Compute the total number of combinations
   size_t totalCombinations = 1;
   for (const auto& vec : vectors) {
-    if (vec.empty()) return Eigen::MatrixXi(0, vectors.size()); // Early return if any input vector is empty
+    if (vec.empty())
+      return Eigen::MatrixXi(0, vectors.size()); // Early return if any input vector is empty
     totalCombinations *= vec.size();
   }
 
@@ -141,13 +150,16 @@ Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>&
 }
 
 // Function to generate all combinations in parallel using load balancing between threads
-Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int>>& vectors, const size_t numThreads) {
-  if (vectors.empty()) return Eigen::MatrixXi(0, 0);
+Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int>>& vectors,
+                                               const size_t numThreads) {
+  if (vectors.empty())
+    return Eigen::MatrixXi(0, 0);
 
   // Compute the total number of combinations
   size_t totalCombinations = 1;
   for (const auto& vec : vectors) {
-    if (vec.empty()) return Eigen::MatrixXi(0, vectors.size()); // Early return if any input vector is empty
+    if (vec.empty())
+      return Eigen::MatrixXi(0, vectors.size()); // Early return if any input vector is empty
     totalCombinations *= vec.size();
   }
 
@@ -163,9 +175,8 @@ Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int
   size_t start = 0;
   for (size_t i = 0; i < numThreads; ++i) {
     size_t end = start + combinationsPerThread + (i < remainder ? 1 : 0);
-    futures.push_back(
-      std::async(std::launch::async, generateCombinations, std::cref(vectors), std::ref(results), start, end)
-    );
+    futures.push_back(std::async(std::launch::async, generateCombinations, std::cref(vectors),
+                                 std::ref(results), start, end));
     start = end;
   }
 
@@ -180,33 +191,32 @@ Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int
 // Wrapper function to call CartesianProductInt from R
 // [[Rcpp::export]]
 Eigen::MatrixXi CartesianProductRcpp(List vectors) {
-    std::vector<std::vector<int>> cpp_vectors;
-    for (int i = 0; i < vectors.size(); ++i) {
-        cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
-    }
+  std::vector<std::vector<int>> cpp_vectors;
+  for (int i = 0; i < vectors.size(); ++i) {
+    cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
+  }
 
-    return CartesianProductInt(cpp_vectors);
+  return CartesianProductInt(cpp_vectors);
 }
 
 // Wrapper function to call CartesianProductIntParallel from R
 // [[Rcpp::export]]
 Eigen::MatrixXi CartesianProductRcppParallel(List vectors, int numThreads) {
-    std::vector<std::vector<int>> cpp_vectors;
-    for (int i = 0; i < vectors.size(); ++i) {
-        cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
-    }
+  std::vector<std::vector<int>> cpp_vectors;
+  for (int i = 0; i < vectors.size(); ++i) {
+    cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
+  }
 
-    return CartesianProductIntParallel(cpp_vectors, numThreads);
+  return CartesianProductIntParallel(cpp_vectors, numThreads);
 }
 
 // Wrapper function to call CartesianProductIntParallel from R
 // [[Rcpp::export]]
 Eigen::MatrixXi CartesianProductRcppParallelxLB(List vectors, int numThreads) {
-    std::vector<std::vector<int>> cpp_vectors;
-    for (int i = 0; i < vectors.size(); ++i) {
-        cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
-    }
+  std::vector<std::vector<int>> cpp_vectors;
+  for (int i = 0; i < vectors.size(); ++i) {
+    cpp_vectors.push_back(as<std::vector<int>>(vectors[i]));
+  }
 
-    return CartesianProductIntParallelxLB(cpp_vectors, numThreads);
+  return CartesianProductIntParallelxLB(cpp_vectors, numThreads);
 }
-

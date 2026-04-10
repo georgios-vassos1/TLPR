@@ -17,8 +17,7 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
                    const std::vector<std::vector<int>>& bids,
                    const std::vector<std::vector<int>>& lanes,
                    const std::unordered_map<std::string, std::vector<double>>& contractRates,
-                   const std::vector<double>& spotRates,
-                   const int& nSpotCarriers,
+                   const std::vector<double>& spotRates, const int& nSpotCarriers,
                    const int& nLanes) {
 
   // Print winner key-value pairs
@@ -34,9 +33,8 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
       for (size_t laneIndex : bid) {
         std::cout << "Lane index " << laneIndex << ": " << std::endl;
         const auto& lane = lanes[laneIndex - 1];
-        std::cout << "From origin "     << lane[0] 
-                  << " to destination " << lane[1] 
-                  << " at " << contractRates.at(winnerKey).at(k++) << " USD per km." << std::endl;
+        std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at "
+                  << contractRates.at(winnerKey).at(k++) << " USD per km." << std::endl;
       }
     }
 
@@ -51,11 +49,8 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
 
       std::cout << "Lane index " << laneIndex + 1 << ": " << std::endl;
       const auto& lane = lanes[laneIndex];
-      std::cout << "From origin "     << lane[0] 
-                << " to destination " << lane[1] 
-                << " at " << spotRates[carrierIndex * nLanes + laneIndex] << " USD per km." << std::endl;
+      std::cout << "From origin " << lane[0] << " to destination " << lane[1] << " at "
+                << spotRates[carrierIndex * nLanes + laneIndex] << " USD per km." << std::endl;
     }
   }
 }
-
-

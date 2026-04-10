@@ -1,0 +1,22 @@
+---
+Language:        Cpp
+BasedOnStyle:    LLVM
+IndentWidth:     2
+ColumnLimit:     100
+PointerAlignment: Left
+IndentPPDirectives: BeforeHash
+AlignConsecutiveDeclarations: false
+AlignConsecutiveAssignments:  false
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+BraceWrapping:
+  AfterFunction: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Attach
+SpaceBeforeParens: ControlStatements
+SortIncludes: Never
+SortUsingDeclarations: false
+Standard: c++17

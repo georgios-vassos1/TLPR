@@ -10,13 +10,12 @@
 // Function to extract an unordered map (dictionary) from the input JSON
 // @param input JSON object to parse
 // @return Unordered map with string keys and values of type T
-template<typename T>
-std::unordered_map<std::string, T> importList(const nlohmann::json& input);
+template <typename T> std::unordered_map<std::string, T> importList(const nlohmann::json& input);
 
 // Function to extract a list of vectors from the input JSON
 // @param input JSON object to parse
 // @return Unordered map with string keys and vector of type T as values
-template<typename T>
+template <typename T>
 std::unordered_map<std::string, std::vector<T>> importListOfVectors(const nlohmann::json& input);
 
 // Function to print the instance
@@ -31,19 +30,17 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
                    const std::vector<std::vector<int>>& bids,
                    const std::vector<std::vector<int>>& lanes,
                    const std::unordered_map<std::string, std::vector<double>>& contractRates,
-                   const std::vector<double>& spotRates,
-                   const int& nSpotCarriers,
+                   const std::vector<double>& spotRates, const int& nSpotCarriers,
                    const int& nLanes);
 
 // Function to extract R list from the input JSON
-template<typename T>
-std::unordered_map<std::string, T> importList(const nlohmann::json& input) {
+template <typename T> std::unordered_map<std::string, T> importList(const nlohmann::json& input) {
   std::unordered_map<std::string, T> output;
 
   // Extract and iterate over the "winner" object
   for (auto it = input.begin(); it != input.end(); ++it) {
     // Extract the key (as string) and value (as array) pair
-    std::string key = it.key();
+    const std::string& key = it.key();
     // Ensure the value is an array with exactly one integer element
     if (!it.value().is_array() || it.value().size() != 1 || !it.value()[0].is_number()) {
       throw std::invalid_argument("Expected an array with a single integer for key: " + key);
@@ -53,7 +50,8 @@ std::unordered_map<std::string, T> importList(const nlohmann::json& input) {
       T value = it.value()[0].get<T>(); // Explicit conversion using get<T>()
       output[key] = value;
     } catch (nlohmann::json::type_error& e) {
-      throw std::runtime_error("Type mismatch when converting JSON value to type T: " + std::string(e.what()));
+      throw std::runtime_error("Type mismatch when converting JSON value to type T: " +
+                               std::string(e.what()));
     }
   }
 
@@ -61,7 +59,7 @@ std::unordered_map<std::string, T> importList(const nlohmann::json& input) {
 }
 
 // Function to extract a list of vectors from the input JSON
-template<typename T>
+template <typename T>
 std::unordered_map<std::string, std::vector<T>> importListOfVectors(const nlohmann::json& input) {
   std::unordered_map<std::string, std::vector<T>> output;
 
@@ -72,7 +70,7 @@ std::unordered_map<std::string, std::vector<T>> importListOfVectors(const nlohma
 
   // Iterate over each key-value pair in the JSON object
   for (auto it = input.begin(); it != input.end(); ++it) {
-    std::string key = it.key();
+    const std::string& key = it.key();
 
     // Check if the value is an array
     if (!it.value().is_array()) {
@@ -84,7 +82,9 @@ std::unordered_map<std::string, std::vector<T>> importListOfVectors(const nlohma
       std::vector<T> values = it.value().get<std::vector<T>>();
       output[key] = values;
     } catch (nlohmann::json::type_error& e) {
-      throw std::runtime_error("Type mismatch when converting JSON array elements to type T for key '" + key + "': " + std::string(e.what()));
+      throw std::runtime_error(
+          "Type mismatch when converting JSON array elements to type T for key '" + key +
+          "': " + std::string(e.what()));
     }
   }
 

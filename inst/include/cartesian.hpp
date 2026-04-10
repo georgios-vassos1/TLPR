@@ -8,19 +8,22 @@
 std::vector<std::vector<int>> CartesianProductIntSTL(const std::vector<std::vector<int>>& vectors);
 
 // Function using only STL containers (type double)
-std::vector<std::vector<double>> CartesianProductDoubleSTL(const std::vector<std::vector<double>>& vectors);
+std::vector<std::vector<double>>
+CartesianProductDoubleSTL(const std::vector<std::vector<double>>& vectors);
 
 // Function returning an Eigen matrix to avoid type conversion to Rcpp supported container
 Eigen::MatrixXi CartesianProductInt(const std::vector<std::vector<int>>& vectors);
 
 // Function to generate a range of combinations in parallel
-void generateCombinations(const std::vector<std::vector<int>>& vectors, Eigen::MatrixXi& results, size_t start, size_t end);
+void generateCombinations(const std::vector<std::vector<int>>& vectors, Eigen::MatrixXi& results,
+                          size_t start, size_t end);
 
 // Function to generate all combinations in parallel
-Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>& vectors, const size_t numThreads);
+Eigen::MatrixXi CartesianProductIntParallel(const std::vector<std::vector<int>>& vectors,
+                                            size_t numThreads);
 
 // Function to generate all combinations in parallel with load balancing
-Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int>>& vectors, const size_t numThreads);
+Eigen::MatrixXi CartesianProductIntParallelxLB(const std::vector<std::vector<int>>& vectors,
+                                               size_t numThreads);
 
 #endif // CARTESIAN_HPP
-

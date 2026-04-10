@@ -12,6 +12,11 @@ src/*.o
 src/*.so
 src/*.dll
 
+# C++ tooling artefacts
+src/compile_commands.json
+src/.cache/
+src/*.plist
+
 # Package install log
 INSTALL
 
