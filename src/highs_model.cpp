@@ -450,6 +450,8 @@ void addVolumeConstraint(Highs& highs, const std::vector<int>& colIdx, int n, do
     std::vector<double> xI(nOrigins, 0.0);
     std::vector<double> xJ(nDestinations, 0.0);
     int nextStateIdx = 0;
+    HighsBasis lastBasis;
+    bool hasBasis = false;
 
     const int volumeRow = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
 
@@ -490,9 +492,14 @@ void addVolumeConstraint(Highs& highs, const std::vector<int>& colIdx, int n, do
               }
               updateSpotRates(threadHighs, colIdx, spotRatesTmp, nServices, nSpotCarriers, nLanes);
 
+              if (hasBasis) {
+                threadHighs.setBasis(lastBasis);
+              }
               threadHighs.run();
 
               if (threadHighs.getModelStatus() == HighsModelStatus::kOptimal) {
+                lastBasis = threadHighs.getBasis();
+                hasBasis = true;
                 double objval = threadHighs.getObjectiveValue();
                 const auto& sol = threadHighs.getSolution();
 
@@ -728,6 +735,8 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
     std::vector<double> xI(nOrigins, 0.0);
     std::vector<double> xJ(nDestinations, 0.0);
     int nextStateIdx = 0;
+    HighsBasis lastBasis;
+    bool hasBasis = false;
 
     const int volumeRow = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
 
@@ -768,9 +777,14 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
               }
               updateSpotRates(threadHighs, colIdx, spotRatesTmp, nServices, nSpotCarriers, nLanes);
 
+              if (hasBasis) {
+                threadHighs.setBasis(lastBasis);
+              }
               threadHighs.run();
 
               if (threadHighs.getModelStatus() == HighsModelStatus::kOptimal) {
+                lastBasis = threadHighs.getBasis();
+                hasBasis = true;
                 double objval = threadHighs.getObjectiveValue();
                 const auto& sol = threadHighs.getSolution();
 
