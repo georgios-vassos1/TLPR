@@ -74,6 +74,24 @@ template <typename T> std::vector<T> mirrorAndNegateVector(const std::vector<T>&
   return extended;
 }
 
+// Decompose a destination extended-state index into surplus (S+) and deficit (S-)
+// components.  The extended index idx ∈ {0,...,2R} encodes signed inventory
+// val = idx - R via mirrorAndNegateVector.  Only one of (sp, sm) is nonzero.
+//
+//   sp = max(val,  0)  — surplus at terminal  (val > 0)
+//   sm = max(-val, 0)  — deficit at terminal  (val < 0)
+//
+inline std::pair<int, int> splitSignedIdx(int idx, int R) {
+  const int val = idx - R;
+  return {std::max(val, 0), std::max(-val, 0)};
+}
+
+// Inverse of splitSignedIdx: reconstruct the extended-state index from (sp, sm).
+// Caller must guarantee sp >= 0, sm >= 0, and sp * sm == 0.
+inline int joinSignedIdx(int sp, int sm, int R) {
+  return R + sp - sm;
+}
+
 // Helper function to append copies of a vector to a target vector
 template <typename T>
 void appendVectors(std::vector<std::vector<T>>& target, const std::vector<T>& idx, int count) {
