@@ -10,10 +10,12 @@
   #include "reader.hpp"
   #include "utils.hpp"
   #include "cartesian.hpp"
+  #include "hilbert.hpp"
 #else
   #include "../inst/include/reader.hpp"
   #include "../inst/include/utils.hpp"
   #include "../inst/include/cartesian.hpp"
+  #include "../inst/include/hilbert.hpp"
 #endif
 
 // Explicit using-declarations instead of 'using namespace std' to avoid
@@ -23,6 +25,42 @@ using std::cerr;
 using std::endl;
 using std::string;
 using std::ifstream;
+
+// State traversal order for bellmanUpdateImpl.
+// Hilbert order improves warm-start basis reuse by visiting geometrically
+// adjacent states consecutively.  Lexicographic is the default (no reordering).
+enum class StateOrder { Lexicographic, Hilbert };
+
+// Sort stateIndices in-place by dual Hilbert key.
+// Origin sub-state  (dims 0..nI-1) encoded with bitsFor(R).
+// Destination sub-state (dims nI..nI+nJ-1) encoded after S+/S- split.
+// Ties in origin key are broken by destination key.
+static void sortStatesByHilbert(std::vector<std::vector<int>>& stateIndices, int nOrigins,
+                                int nDestinations, int R) {
+  const int b = hilbert::bitsFor(R);
+  std::sort(stateIndices.begin(), stateIndices.end(),
+            [&](const std::vector<int>& a, const std::vector<int>& bv) {
+              // Origin Hilbert key
+              const uint64_t ha = hilbert::encode(a.data(), nOrigins, b);
+              const uint64_t hb = hilbert::encode(bv.data(), nOrigins, b);
+              if (ha != hb) {
+                return ha < hb;
+              }
+              // Destination Hilbert key via S+/S- split
+              std::vector<int> da, db;
+              da.reserve(2 * nDestinations);
+              db.reserve(2 * nDestinations);
+              for (int j = 0; j < nDestinations; ++j) {
+                auto [spa, sma] = utils::splitSignedIdx(a[nOrigins + j], R);
+                auto [spb, smb] = utils::splitSignedIdx(bv[nOrigins + j], R);
+                da.push_back(spa);
+                da.push_back(sma);
+                db.push_back(spb);
+                db.push_back(smb);
+              }
+              return hilbert::encode(da, b) < hilbert::encode(db, b);
+            });
+}
 
 // Function to stack state index vectors
 std::vector<std::vector<int>> stackStateIdxVectors(int nInventoryLevels, int nOrigins,
@@ -622,7 +660,8 @@ Eigen::MatrixXd computeEnvironmentPtr(SEXP problem_ptr, int t,
 bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& stateSupport,
                   const std::vector<double>& flowSupport, const std::vector<double>& scnpb,
                   const std::vector<double>& alpha, const std::vector<double>& V_next,
-                  int numThreads) {
+                  int numThreads, StateOrder order = StateOrder::Lexicographic,
+                  int chunkSize = 32) {
 
   const int nInventoryLevels = pd.R + 1;
   const int nFlowLevels = pd.nQ;
@@ -661,6 +700,10 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
       stackStateIdxVectors(nInventoryLevels, nOrigins, nDestinations);
   std::vector<std::vector<int>> stateIndices = CartesianProductIntSTL(stateSupportStack);
 
+  if (order == StateOrder::Hilbert) {
+    sortStatesByHilbert(stateIndices, nOrigins, nDestinations, storageLimit);
+  }
+
   std::vector<int> flowIdxSingle = utils::createIndexVector(nFlowLevels);
 
   std::vector<std::vector<int>> inflowIdxStack;
@@ -682,6 +725,16 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
   const int nQdx = static_cast<int>(inflowIndices.size());
   const int nDdx = static_cast<int>(outflowIndices.size());
   const int nWdx = static_cast<int>(spotRateIndices.size());
+
+  // Precompute canonical lexicographic index for each state in traversal order.
+  // In Lexicographic mode lexPos[i] == i; in Hilbert mode it gives the correct
+  // mixed-radix position so that V_t and accumulators share the same indexing
+  // as V_next[nextStateIdx].
+  std::vector<int> lexPos(nSdx);
+  for (int i = 0; i < nSdx; ++i) {
+    lexPos[i] =
+        std::inner_product(stateIndices[i].begin(), stateIndices[i].end(), stateKeys.begin(), 0);
+  }
 
   Highs baseHighs;
   baseHighs.setOptionValue("output_flag", false);
@@ -739,11 +792,18 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
     bool hasBasis = false;
 
     const int volumeRow = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
+    const int ompChunk = (order == StateOrder::Hilbert) ? chunkSize : 1;
 
     try {
-#pragma omp for schedule(dynamic)
+#pragma omp for schedule(dynamic, ompChunk)
       for (int i = 0; i < nSdx; ++i) {
         const auto& stateIdx = stateIndices[i];
+        // Reset HiGHS internal basis to force a cold start for this state.
+        // Without this, threadHighs retains its last optimal basis across
+        // states even when hasBasis==false, causing traversal-order-dependent
+        // LP tie-breaking in degenerate problems.
+        threadHighs.setBasis();
+        hasBasis = false;
 
         for (int idx = 0; idx < nDestinations; ++idx) {
           int p = nStrategicCarriers + nSpotCarriers + nOrigins + idx;
@@ -831,7 +891,7 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
                       std::inner_product(nextState.begin(), nextState.end(), stateKeys.begin(), 0);
 
                   int kdx = std::inner_product(fdx.begin(), fdx.end(), flowKeys.begin(), 0);
-                  const int ij = i * nAdx + j;
+                  const int ij = lexPos[i] * nAdx + j;
                   double pb = scnpb[kdx];
                   sumW[ij] += pb;
                   sumCost[ij] += pb * objval;
@@ -875,6 +935,7 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
 
   for (int i = 0; i < nSdx; ++i) {
     const auto& stateIdx = stateIndices[i];
+    const int lexI = lexPos[i];
 
     double holdCost = 0.0;
     for (int k = 0; k < nOrigins; ++k) {
@@ -889,7 +950,7 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
     double Qmax = -std::numeric_limits<double>::infinity();
     double Qmin = std::numeric_limits<double>::infinity();
     for (int j = 0; j < nAdx; ++j) {
-      int ij = i * nAdx + j;
+      int ij = lexI * nAdx + j;
       if (hasFeas[ij] == 0) {
         continue;
       }
@@ -900,18 +961,18 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
     }
 
     if (std::isfinite(Qmax)) {
-      V_t[i] = Qmax;
+      V_t[lexI] = Qmax;
     }
 
     double randSum = 0.0;
     for (int j = 0; j < nAdx; ++j) {
-      int ij = i * nAdx + j;
+      int ij = lexI * nAdx + j;
       if (!Rcpp::NumericVector::is_na(Q_t[ij])) {
         randSum += Q_t[ij] - Qmin + 1.0;
       }
     }
     for (int j = 0; j < nAdx; ++j) {
-      int ij = i * nAdx + j;
+      int ij = lexI * nAdx + j;
       if (Rcpp::NumericVector::is_na(Q_t[ij])) {
         continue;
       }
@@ -933,9 +994,12 @@ Rcpp::List bellmanUpdateCx(const std::string& jsonFile, int t,
                            const std::vector<double>& stateSupport,
                            const std::vector<double>& flowSupport, const std::vector<double>& scnpb,
                            const std::vector<double>& alpha, const std::vector<double>& V_next,
-                           int numThreads = 8) {
+                           int numThreads = 8, const std::string& traversalOrder = "lexicographic",
+                           int chunkSize = 32) {
+  StateOrder order =
+      (traversalOrder == "hilbert") ? StateOrder::Hilbert : StateOrder::Lexicographic;
   return bellmanUpdateImpl(parseProblemData(jsonFile), t, stateSupport, flowSupport, scnpb, alpha,
-                           V_next, numThreads);
+                           V_next, numThreads, order, chunkSize);
 }
 
 // XPtr wrapper — dereferences pointer then delegates to the canonical impl.
@@ -945,12 +1009,17 @@ Rcpp::List bellmanUpdateCx(const std::string& jsonFile, int t,
 Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, int t, const std::vector<double>& stateSupport,
                             const std::vector<double>& flowSupport,
                             const std::vector<double>& scnpb, const std::vector<double>& alpha,
-                            const std::vector<double>& V_next, int numThreads = 8) {
+                            const std::vector<double>& V_next, int numThreads = 8,
+                            const std::string& traversalOrder = "lexicographic",
+                            int chunkSize = 32) {
   Rcpp::XPtr<ProblemData> pd(problem_ptr);
   if (!pd) {
     Rcpp::stop("problem_ptr is NULL or expired");
   }
-  return bellmanUpdateImpl(*pd, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads);
+  StateOrder order =
+      (traversalOrder == "hilbert") ? StateOrder::Hilbert : StateOrder::Lexicographic;
+  return bellmanUpdateImpl(*pd, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads,
+                           order, chunkSize);
 }
 
 // Create a HiGHS model (replaces createGRBmodel)

@@ -15,14 +15,32 @@ CartesianProductRcppParallelxLB <- function(vectors, numThreads) {
 
 #' @useDynLib TLPR
 #' @export
+loadProblemDataCx <- function(jsonFile) {
+    .Call('_TLPR_loadProblemDataCx', PACKAGE = 'TLPR', jsonFile)
+}
+
+#' @useDynLib TLPR
+#' @export
 computeEnvironmentCx <- function(jsonFile, t, stateSupport, flowSupport, numThreads = 8L) {
     .Call('_TLPR_computeEnvironmentCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, numThreads)
 }
 
 #' @useDynLib TLPR
 #' @export
-bellmanUpdateCx <- function(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L) {
-    .Call('_TLPR_bellmanUpdateCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads)
+computeEnvironmentPtr <- function(problem_ptr, t, stateSupport, flowSupport, numThreads = 8L) {
+    .Call('_TLPR_computeEnvironmentPtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, numThreads)
+}
+
+#' @useDynLib TLPR
+#' @export
+bellmanUpdateCx <- function(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, traversalOrder = "lexicographic", chunkSize = 32L) {
+    .Call('_TLPR_bellmanUpdateCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize)
+}
+
+#' @useDynLib TLPR
+#' @export
+bellmanUpdatePtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, traversalOrder = "lexicographic", chunkSize = 32L) {
+    .Call('_TLPR_bellmanUpdatePtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize)
 }
 
 #' @useDynLib TLPR
@@ -69,6 +87,12 @@ printConstraintsCx <- function(model_ptr) {
 
 #' @useDynLib TLPR
 #' @export
+solveModelCx <- function(model_ptr, transport_ptr) {
+    .Call('_TLPR_solveModelCx', PACKAGE = 'TLPR', model_ptr, transport_ptr)
+}
+
+#' @useDynLib TLPR
+#' @export
 optimizeModelFromJSON <- function(jsonFile, t, spotRates, storage_limits, volume) {
     .Call('_TLPR_optimizeModelFromJSON', PACKAGE = 'TLPR', jsonFile, t, spotRates, storage_limits, volume)
 }
@@ -95,29 +119,5 @@ end_suppress_stdout <- function(saved_fd) {
 #' @export
 rmvnorm <- function(n, mean, covar, nThreads = 8L) {
     .Call('_TLPR_rmvnorm', PACKAGE = 'TLPR', n, mean, covar, nThreads)
-}
-
-#' @useDynLib TLPR
-#' @export
-loadProblemDataCx <- function(jsonFile) {
-    .Call('_TLPR_loadProblemDataCx', PACKAGE = 'TLPR', jsonFile)
-}
-
-#' @useDynLib TLPR
-#' @export
-computeEnvironmentPtr <- function(problem_ptr, t, stateSupport, flowSupport, numThreads = 8L) {
-    .Call('_TLPR_computeEnvironmentPtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, numThreads)
-}
-
-#' @useDynLib TLPR
-#' @export
-bellmanUpdatePtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L) {
-    .Call('_TLPR_bellmanUpdatePtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads)
-}
-
-#' @useDynLib TLPR
-#' @export
-solveModelCx <- function(model_ptr, transport_ptr) {
-    .Call('_TLPR_solveModelCx', PACKAGE = 'TLPR', model_ptr, transport_ptr)
 }
 

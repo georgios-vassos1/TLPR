@@ -377,7 +377,8 @@ compute_environment <- function(env, env.dp, t, start, end, scenaria, weights, F
 #' @return A named list with elements \code{V}, \code{Q}, \code{pi_star},
 #'   \code{pi_rand} — identical structure to \code{dynamic_programming}.
 #' @export
-rolling_dp_cx <- function(env, jsonFile, numThreads = 8L) {
+rolling_dp_cx <- function(env, jsonFile, numThreads = 8L,
+                          traversalOrder = "lexicographic", chunkSize = 32L) {
 
   V       <- matrix(NA_real_, nrow = env$tau + 1L, ncol = env$nSdx)
   Q       <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
@@ -403,8 +404,10 @@ rolling_dp_cx <- function(env, jsonFile, numThreads = 8L) {
       flowSupport  = as.double(env$Q$vals),
       scnpb        = env$scnpb,
       alpha        = env$alpha,
-      V_next       = V[t + 1L, ],
-      numThreads   = numThreads
+      V_next         = V[t + 1L, ],
+      numThreads     = numThreads,
+      traversalOrder = traversalOrder,
+      chunkSize      = chunkSize
     )
     V      [t, ] <- step$V_t
     Q      [t, ] <- step$Q_t
@@ -428,7 +431,8 @@ rolling_dp_cx <- function(env, jsonFile, numThreads = 8L) {
 #' @return Same structure as \code{rolling_dp_cx}: a named list with
 #'   \code{V}, \code{Q}, \code{pi_star}, \code{pi_rand}.
 #' @export
-rolling_dp_ptr <- function(env, jsonFile, numThreads = 8L) {
+rolling_dp_ptr <- function(env, jsonFile, numThreads = 8L,
+                           traversalOrder = "lexicographic", chunkSize = 32L) {
 
   prob <- loadProblemDataCx(jsonFile)
 
@@ -455,8 +459,10 @@ rolling_dp_ptr <- function(env, jsonFile, numThreads = 8L) {
       flowSupport  = as.double(env$Q$vals),
       scnpb        = env$scnpb,
       alpha        = env$alpha,
-      V_next       = V[t + 1L, ],
-      numThreads   = numThreads
+      V_next         = V[t + 1L, ],
+      numThreads     = numThreads,
+      traversalOrder = traversalOrder,
+      chunkSize      = chunkSize
     )
     V      [t, ] <- step$V_t
     Q      [t, ] <- step$Q_t
