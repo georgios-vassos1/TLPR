@@ -1318,10 +1318,10 @@ struct StdoutSuppressor {
     close(saved_fd);
   }
 
-  StdoutSuppressor(const StdoutSuppressor&)            = delete;
+  StdoutSuppressor(const StdoutSuppressor&) = delete;
   StdoutSuppressor& operator=(const StdoutSuppressor&) = delete;
-  StdoutSuppressor(StdoutSuppressor&&)                 = delete;
-  StdoutSuppressor& operator=(StdoutSuppressor&&)      = delete;
+  StdoutSuppressor(StdoutSuppressor&&) = delete;
+  StdoutSuppressor& operator=(StdoutSuppressor&&) = delete;
 };
 
 // begin_suppress_stdout / end_suppress_stdout are exported to R for use in
