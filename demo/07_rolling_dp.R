@@ -162,7 +162,7 @@ for (cfg in configs) {
   R     <- as.integer(round(10 * rate))
   nSdx  <- (R + 1L)^nI * (2L * R + 1L)^nJ
   nAdx  <- R + 1L
-  nScen <- 3L^nI * 3L^nJ * 2L   # nQ=3, nD=3, nW=2, nCO=1
+  nScen <- 3L^nI * 3L^nJ * 3L   # nQ=3, nD=3, nW=3, nCO=1 (balanced regime)
   transit_rows <- tau * nSdx * nAdx * nScen
 
   label    <- sprintf("%dx%d tau=%d R=%d", nI, nJ, tau, R)

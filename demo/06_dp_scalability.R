@@ -70,7 +70,7 @@ for (cfg in configs) {
   nSJ   <- 2L * R + 1L
   nSdx  <- nSI^nI * nSJ^nJ
   nAdx  <- R + 1L
-  nScen <- 3L^nI * 3L^nJ * 2L    # nQ=3, nD=3, nW=2, nCO=1
+  nScen <- 3L^nI * 3L^nJ * 3L    # nQ=3, nD=3, nW=3, nCO=1 (balanced regime)
   transit_rows <- tau * nSdx * nAdx * nScen
 
   label <- sprintf("%dx%d tau=%d R=%d", nI, nJ, tau, R)

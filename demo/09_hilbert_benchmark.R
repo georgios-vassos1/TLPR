@@ -93,6 +93,8 @@ cat("\n", strrep("=", 70), "\n", sep = "")
 cat("Part 2 — Timing: Lexicographic vs Hilbert traversal order\n")
 cat(strrep("=", 70), "\n")
 
+MAX_NSDX <- 3000L   # skip configs whose state space exceeds this
+
 configs <- list(
   list(nI=1L, nJ=1L, tau=4L,  rate=0.5,  label="1x1 R=5  tau=4"),
   list(nI=1L, nJ=1L, tau=4L,  rate=1.0,  label="1x1 R=10 tau=4"),
@@ -114,6 +116,14 @@ cat(sprintf(fmt_hdr,
 cat(strrep("-", 85), "\n")
 
 for (cfg in configs) {
+  R_cfg <- as.integer(round(10 * cfg$rate))
+  nSdx_est <- (R_cfg + 1L)^cfg$nI * (2L * R_cfg + 1L)^cfg$nJ
+  if (nSdx_est > MAX_NSDX) {
+    cat(sprintf("%-22s  %8d  %5s  %6s  %9s  %9s  %8s  %8s\n",
+                cfg$label, nSdx_est, "-", "-", "-", "-", "SKIP", "SKIP"))
+    next
+  }
+
   tmpf <- tempfile(fileext = ".json")
   generate_instance(
     nI = cfg$nI, nJ = cfg$nJ, tau = cfg$tau,
