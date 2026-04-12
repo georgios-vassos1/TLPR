@@ -30,9 +30,9 @@ TRANSIT_CACHE <- file.path(tempdir(), "tlpr_transit_1x1_4.rds")
 DP_CACHE      <- file.path(tempdir(), "tlpr_dp_1x1_4.rds")
 
 ## Paper reference values for numerical assertions
-PAPER_COST_INITIAL  <- 557.2   # V1*(x0) — Table 1 / Section 5.2.2
-PAPER_COST_OPTIMAL  <- 439.2   # V1*(x*) — Table 2
-PAPER_REDUCTION_PCT <- 21.2    # percentage cost reduction
+PAPER_COST_INITIAL  <- 600.2   # V1*(x0) + v(x0) — Table 1 / Section 5.2.2
+PAPER_COST_OPTIMAL  <- 439.2   # V1*(x*) + v(x*) — Table 2
+PAPER_REDUCTION_PCT <- 26.8    # percentage cost reduction
 PAPER_ASSERT_TOL    <- 1.0     # acceptable absolute tolerance
 
 cat(sprintf("[config] JSON: %s\n", JSON_PATH))

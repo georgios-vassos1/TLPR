@@ -9,7 +9,7 @@
 ## All gurobi:: calls replaced with solve_lp() (HiGHS).
 ##
 ## Outputs:
-##   v0       — cost under initial capacity x0  (≈ 557.2)
+##   v0       — cost under initial capacity x0  (≈ 600.2, s0=(0,8) fixed)
 ##   x        — optim result under fixed scenario
 ##   opcosts  — 1M CostPerTEU values (Table 3)
 ##   x.ev     — EV-approximate optimal capacity
@@ -76,6 +76,27 @@ sns <- c(ccx$sense, tlx$sense, slx$sense)
 mp_model             <- multiperiod_expansion(env, Q_fixed, D_fixed, A, obj_, rhs, sns)
 mp_model$modelsense  <- "min"
 mp_model$vtype       <- rep("C", ncol(mp_model$A))
+
+## -- Fix initial state S0 = (0, 8) -----------------------------------
+## multiperiod_expansion treats the initial inventory variables as free LP
+## decisions (with alpha holding costs in the objective).  The initial state
+## is exogenous; pin it to S0 via equality constraints so the LP evaluates
+## V1*(S0, x) rather than the LP-optimal starting inventory.
+## The alpha * S0 term in the objective is retained: it represents the
+## legitimate holding cost of the initial inventory in period 1.
+offset   <- env$nI + 2L * env$nJ
+
+s0_entry <- S0[seq(env$nI)]
+s0_j_pos <- pmax(S0[env$nI + seq(env$nJ)],  0L)   # S_j^+ = max(S0_j, 0)
+s0_j_neg <- pmax(-S0[env$nI + seq(env$nJ)], 0L)   # S_j^- = max(-S0_j, 0)
+s0_rhs   <- c(s0_entry, as.vector(rbind(s0_j_pos, s0_j_neg)))
+
+n_col    <- ncol(mp_model$A)
+A_s0     <- cbind(Matrix::Diagonal(offset),
+                  Matrix::Matrix(0L, nrow = offset, ncol = n_col - offset))
+mp_model$A     <- rbind(mp_model$A, A_s0)
+mp_model$rhs   <- c(mp_model$rhs,   s0_rhs)
+mp_model$sense <- c(mp_model$sense, rep("=", offset))
 
 ## Capacity constraint RHS indices (1x1: nCS+nCO=2 carriers, tau=4 periods)
 capdx <- c(outer(seq(env$nCS + env$nCO), seq(0L, 6L * (env$tau - 1L), 6L), "+"))

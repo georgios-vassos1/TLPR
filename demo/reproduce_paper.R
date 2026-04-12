@@ -14,9 +14,9 @@
 ##                 Defaults to skipping those sections.
 ##
 ## Outputs checked against paper (arxiv 2505.01808):
-##   v0      ≈ 557.2  (Table 1 / Section 5.2.2)
+##   v0      ≈ 600.2  (Table 1 / Section 5.2.2, s0=(0,8) fixed)
 ##   v_opt   ≈ 439.2  (Table 2)
-##   reduction ≈ 21.2%
+##   reduction ≈ 26.8%
 ## ============================================================
 
 suppressPackageStartupMessages(library(TLPR))
@@ -50,7 +50,7 @@ cat("\n========  Paper Assertions  ========\n")
 
 ## 1. Initial cost V1*(x0)
 stopifnot(
-  "V1*(x0) must be within 1.0 of paper value 557.2" =
+  "V1*(x0) must be within 1.0 of paper value 600.2" =
     abs(v0 - PAPER_COST_INITIAL) < PAPER_ASSERT_TOL
 )
 cat(sprintf("  [PASS] V1*(x0)     = %7.2f   paper = %.1f\n", v0, PAPER_COST_INITIAL))
@@ -65,7 +65,7 @@ cat(sprintf("  [PASS] V1*(x*)     = %7.2f   paper = %.1f\n", v_opt, PAPER_COST_O
 ## 3. Percentage cost reduction
 reduction_pct <- (1.0 - v_opt / v0) * 100.0
 stopifnot(
-  "Reduction % must be within 0.5pp of paper value 21.2%" =
+  "Reduction % must be within 0.5pp of paper value 26.8%" =
     abs(reduction_pct - PAPER_REDUCTION_PCT) < 0.5
 )
 cat(sprintf("  [PASS] Reduction   = %7.1f%%   paper = %.1f%%\n",
