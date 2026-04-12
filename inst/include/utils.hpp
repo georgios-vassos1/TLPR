@@ -111,8 +111,8 @@ std::map<KeyType, std::vector<ValueType>> convertListToMap(SEXP inputList) {
   }
 
   Rcpp::List list(inputList);
-  bool useIndices = Rf_isNull(list.names()); // NOLINT(cppcoreguidelines-init-variables)
-  Rcpp::CharacterVector names;
+  const bool useIndices = (list.names() == R_NilValue);
+  Rcpp::CharacterVector names{};
   if (!useIndices) {
     names = list.names();
   }
@@ -128,7 +128,7 @@ std::map<KeyType, std::vector<ValueType>> convertListToMap(SEXP inputList) {
       key = Rcpp::as<KeyType>(names[i]);
     }
 
-    SEXP valuesSEXP = list[i];
+    const SEXP valuesSEXP = list[i];
     Rcpp::NumericVector values(valuesSEXP);
     std::vector<ValueType> vec(values.begin(), values.end());
 

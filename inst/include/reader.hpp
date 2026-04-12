@@ -30,8 +30,8 @@ void printInstance(const std::unordered_map<std::string, std::vector<int>>& winn
                    const std::vector<std::vector<int>>& bids,
                    const std::vector<std::vector<int>>& lanes,
                    const std::unordered_map<std::string, std::vector<double>>& contractRates,
-                   const std::vector<double>& spotRates, const int& nSpotCarriers,
-                   const int& nLanes);
+                   const std::vector<double>& spotRates, int nSpotCarriers,
+                   int nLanes);
 
 // Function to extract R list from the input JSON
 template <typename T> std::unordered_map<std::string, T> importList(const nlohmann::json& input) {

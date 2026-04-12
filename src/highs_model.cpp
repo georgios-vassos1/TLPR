@@ -228,7 +228,7 @@ SEXP loadProblemDataCx(const std::string& jsonFile) {
 createTransportVars(Highs& highs, int n, const std::vector<std::string>& winnerKeys,
                     const std::unordered_map<std::string, std::vector<int>>& winners,
                     const std::vector<std::vector<int>>& bids,
-                    const std::vector<std::vector<int>>& lanes,
+                    [[maybe_unused]] const std::vector<std::vector<int>>& lanes,
                     const std::unordered_map<std::string, std::vector<double>>& contractRates,
                     const std::vector<double>& spotRates, int nSpotCarriers, int nLanes) {
 
@@ -969,8 +969,9 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
       holdCost -= std::min(sj, 0.0) * alpha[nOrigins + nDestinations + k];
     }
 
-    double Qmax = -std::numeric_limits<double>::infinity();
-    double Qmin = std::numeric_limits<double>::infinity();
+    double Qmax{};
+    double Qmin{};
+    bool hasAnyFeasible{false};
     for (int j = 0; j < nAdx; ++j) {
       int ij = lexI * nAdx + j;
       if (hasFeas[ij] == 0) {
@@ -978,11 +979,11 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
       }
       double q = -holdCost - sumCost[ij] + sumV[ij];
       Q_t[ij] = q;
-      Qmax = std::max(Qmax, q);
-      Qmin = std::min(Qmin, q);
+      if (!hasAnyFeasible) { Qmax = q; Qmin = q; hasAnyFeasible = true; }
+      else { Qmax = std::max(Qmax, q); Qmin = std::min(Qmin, q); }
     }
 
-    if (std::isfinite(Qmax)) {
+    if (hasAnyFeasible) {
       V_t[lexI] = Qmax;
     }
 
@@ -1021,7 +1022,7 @@ Rcpp::List bellmanUpdateCx(const std::string& jsonFile, int t,
   StateOrder order =
       (traversalOrder == "hilbert") ? StateOrder::Hilbert : StateOrder::Lexicographic;
   std::vector<int> subset;
-  if (!Rf_isNull(stateSubset) && Rf_length(stateSubset) > 0) {
+  if (stateSubset != R_NilValue && Rf_length(stateSubset) > 0) {
     const int* p = INTEGER(stateSubset);
     const int n = Rf_length(stateSubset);
     subset.resize(n);
@@ -1048,7 +1049,7 @@ Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, int t, const std::vector<double>& 
   StateOrder order =
       (traversalOrder == "hilbert") ? StateOrder::Hilbert : StateOrder::Lexicographic;
   std::vector<int> subset;
-  if (!Rf_isNull(stateSubset) && Rf_length(stateSubset) > 0) {
+  if (stateSubset != R_NilValue && Rf_length(stateSubset) > 0) {
     const int* p = INTEGER(stateSubset);
     const int n = Rf_length(stateSubset);
     subset.resize(n);
@@ -1247,42 +1248,39 @@ Rcpp::List solveModelCx(SEXP model_ptr, SEXP transport_ptr) {
 
   const int n = static_cast<int>(colIdx->size());
 
-  Rcpp::List result =
-      Rcpp::List::create(Rcpp::_["objval"] = 0.0, Rcpp::_["x"] = Rcpp::NumericVector(n),
-                         Rcpp::_["status"] = "INITIAL");
+  double objval{0.0};
+  std::string status{"INITIAL"};
+  Rcpp::NumericVector x(n, 0.0);
 
   try {
     highs->run();
 
     if (highs->getModelStatus() == HighsModelStatus::kOptimal) {
-      result["status"] = std::string("OPTIMAL");
-      result["objval"] = highs->getObjectiveValue();
+      status = "OPTIMAL";
+      objval = highs->getObjectiveValue();
       const auto& sol = highs->getSolution();
-      Rcpp::NumericVector x(n);
       for (int i = 0; i < n; ++i) {
         x[i] = sol.col_value[(*colIdx)[i]];
       }
-      result["x"] = x;
     } else if (highs->getModelStatus() == HighsModelStatus::kInfeasible) {
-      result["status"] = std::string("INFEASIBLE");
+      status = "INFEASIBLE";
       Rcpp::Rcout << "Model is infeasible" << '\n';
     } else if (highs->getModelStatus() == HighsModelStatus::kUnbounded) {
-      result["status"] = std::string("UNBOUNDED");
+      status = "UNBOUNDED";
       Rcpp::Rcout << "Model is unbounded" << '\n';
     } else {
-      result["status"] = std::string("OTHER");
+      status = "OTHER";
       Rcpp::Rcout << "Optimization ended with non-optimal status" << '\n';
     }
-
-    return result;
-
   } catch (const std::exception& e) {
     Rcpp::Rcout << "Error: " << e.what() << '\n';
   } catch (...) {
     Rcpp::Rcout << "Exception during optimization" << '\n';
   }
 
-  return result;
+  return Rcpp::List::create(Rcpp::_["objval"] = objval,
+                            Rcpp::_["x"]      = x,
+                            Rcpp::_["status"] = status);
 }
 
 // Optimize the model and return objective and decision in R list
@@ -1298,10 +1296,9 @@ Rcpp::List optimizeModelFromJSON(const std::string& jsonFile, int t,
   const int n = pd.nL_ + pd.nCO * pd.nL;
   const std::vector<int> nWarehouses = {pd.nI, pd.nJ};
 
-  // Preallocate the result list
-  Rcpp::List result =
-      Rcpp::List::create(Rcpp::_["objval"] = 0.0, Rcpp::_["x"] = Rcpp::NumericVector(n),
-                         Rcpp::_["status"] = "INITIAL");
+  double objval{0.0};
+  std::string status{"INITIAL"};
+  Rcpp::NumericVector x(n, 0.0);
 
   try {
     Highs highs;
@@ -1319,36 +1316,31 @@ Rcpp::List optimizeModelFromJSON(const std::string& jsonFile, int t,
     highs.run();
 
     if (highs.getModelStatus() == HighsModelStatus::kOptimal) {
-      result["status"] = std::string("OPTIMAL");
-      result["objval"] = highs.getObjectiveValue();
-
+      status = "OPTIMAL";
+      objval = highs.getObjectiveValue();
       const auto& sol = highs.getSolution();
-      Rcpp::NumericVector x(n);
       for (int i = 0; i < n; ++i) {
         x[i] = sol.col_value[colIdx[i]];
       }
-      result["x"] = x;
-
     } else if (highs.getModelStatus() == HighsModelStatus::kInfeasible) {
-      result["status"] = std::string("INFEASIBLE");
+      status = "INFEASIBLE";
       Rcpp::Rcout << "Model is infeasible" << '\n';
     } else if (highs.getModelStatus() == HighsModelStatus::kUnbounded) {
-      result["status"] = std::string("UNBOUNDED");
+      status = "UNBOUNDED";
       Rcpp::Rcout << "Model is unbounded" << '\n';
     } else {
-      result["status"] = std::string("OTHER");
+      status = "OTHER";
       Rcpp::Rcout << "Optimization ended with non-optimal status" << '\n';
     }
-
-    return result;
-
   } catch (const std::exception& e) {
     Rcpp::Rcout << "Error: " << e.what() << '\n';
   } catch (...) {
     Rcpp::Rcout << "Exception during optimization" << '\n';
   }
 
-  return result;
+  return Rcpp::List::create(Rcpp::_["objval"] = objval,
+                            Rcpp::_["x"]      = x,
+                            Rcpp::_["status"] = status);
 }
 
 // Function to update the state index
