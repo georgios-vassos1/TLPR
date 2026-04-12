@@ -197,6 +197,54 @@ generate_cssap <- function(env, tau=12L, ...) {
   get_to_routes(env)
 }
 
+# ── Regime preset table ───────────────────────────────────────────────────────
+# Returns a list of defaults for Q, D, W, alpha, cap_factor, seasonality
+# scaled to the given storage limit R.  All values can be overridden by
+# the caller via explicit arguments to generate_instance.
+.regime_defaults <- function(regime, R, nI, nJ) {
+  r2 <- R %/% 2L
+  r4 <- R %/% 4L
+  switch(regime,
+    balanced = list(
+      Q           = list(vals = c(0L, r2, R),           prob = c(0.10, 0.70, 0.20)),
+      D           = list(vals = c(0L, r2, R),           prob = c(0.10, 0.50, 0.40)),
+      W           = list(vals = c(10.0, 15.0, 22.0),    prob = NULL),
+      alpha       = c(rep(5.0, nI), rep(c(4.0, 8.0),  each = nJ)),
+      cap_factor  = 1.0,
+      seasonality = 0.0
+    ),
+    # Scarce supply, high demand, expensive spot market, tight carrier capacity.
+    tight = list(
+      Q           = list(vals = c(0L, r4, r2),              prob = c(0.20, 0.50, 0.30)),
+      D           = list(vals = c(r2, R, as.integer(R*1.5)), prob = c(0.20, 0.50, 0.30)),
+      W           = list(vals = c(15.0, 25.0, 40.0),         prob = NULL),
+      alpha       = c(rep(8.0, nI), rep(c(6.0, 12.0), each = nJ)),
+      cap_factor  = 0.5,
+      seasonality = 0.0
+    ),
+    # Abundant supply, low demand, cheap spot market, ample carrier capacity.
+    loose = list(
+      Q           = list(vals = c(r2, R, as.integer(R*1.5)), prob = c(0.30, 0.50, 0.20)),
+      D           = list(vals = c(0L, r4, r2),               prob = c(0.30, 0.50, 0.20)),
+      W           = list(vals = c(8.0, 12.0, 16.0),          prob = NULL),
+      alpha       = c(rep(3.0, nI), rep(c(2.0, 4.0),  each = nJ)),
+      cap_factor  = 2.0,
+      seasonality = 0.0
+    ),
+    # Wide Q/D/W distributions and seasonal spot rate pattern.
+    volatile = list(
+      Q           = list(vals = c(0L, r4, r2, R),              prob = c(0.15, 0.30, 0.35, 0.20)),
+      D           = list(vals = c(0L, r4, r2, R),              prob = c(0.10, 0.20, 0.40, 0.30)),
+      W           = list(vals = c(5.0, 10.0, 18.0, 30.0, 50.0), prob = NULL),
+      alpha       = c(rep(5.0, nI), rep(c(4.0, 8.0),  each = nJ)),
+      cap_factor  = 1.0,
+      seasonality = 0.3
+    ),
+    stop("Unknown regime: ", regime,
+         ". Choose from: balanced, tight, loose, volatile.")
+  )
+}
+
 #' Generate Instance
 #'
 #' Generates a complete TLPR problem instance, including auction structure,
@@ -209,93 +257,132 @@ generate_cssap <- function(env, tau=12L, ...) {
 #' @param nB Number of bids. Defaults to 5L.
 #' @param nCS Number of strategic carriers. Defaults to 10L.
 #' @param nCO Number of spot (outside option) carriers. Defaults to 1L.
-#' @param rate Capacity rate parameter. Defaults to 4.0.
-#' @param Q List with elements \code{vals} (integer vector of supply quantities)
-#'   and \code{prob} (probability vector). Defaults to vals = c(0, 4, 8),
-#'   prob = c(0.1, 0.7, 0.2).
-#' @param D List with elements \code{vals} (integer vector of demand quantities)
-#'   and \code{prob} (probability vector). Defaults to vals = c(0, 4, 8),
-#'   prob = c(0.1, 0.5, 0.4).
-#' @param W List with elements \code{vals} (numeric vector of random cost shocks)
-#'   and \code{prob} (probability vector or NULL). If \code{prob} is NULL,
-#'   computed via \code{dnorm(vals, 18, 12)} normalised.
-#' @param alpha Numeric vector of penalty weights. If NULL, defaults to
-#'   \code{c(rep(5.0, nI), rep(c(4.0, 8.0), each = nJ))}.
-#' @param max.S Maximum storage level. If NULL, defaults to \code{env$R}
-#'   (which is \code{10 * rate}).
-#' @param seed If non-NULL, calls \code{set.seed(seed)} before any stochastic
-#'   generation for reproducibility.
-#' @param path If non-NULL, writes the instance as JSON to this path. If
-#'   \code{TRUE}, writes to a default filename
-#'   \code{instance{nI}x{nJ}_{tau}_001.json} in the current directory.
+#' @param rate Storage-limit rate: \code{R = 10 * rate}. Defaults to 1.0.
+#' @param regime One of \code{"balanced"} (default), \code{"tight"},
+#'   \code{"loose"}, or \code{"volatile"}. Sets default values for Q, D, W,
+#'   alpha, cap_factor, and seasonality, all scaled to R.  Any of those
+#'   arguments supplied explicitly will override the regime preset.
+#' @param Q List with \code{vals} (supply support, scaled to R by default) and
+#'   \code{prob}. \code{NULL} uses the regime preset.
+#' @param D List with \code{vals} (demand support) and \code{prob}.
+#'   \code{NULL} uses the regime preset.
+#' @param W List with \code{vals} (spot-rate support, actual cost units) and
+#'   \code{prob} (uniform if \code{NULL}). \code{NULL} uses the regime preset.
+#' @param alpha Holding-cost penalty vector (length \code{nI + 2*nJ}).
+#'   \code{NULL} uses the regime preset.
+#' @param cap_factor Multiplier on carrier capacity: \code{< 1} tightens,
+#'   \code{> 1} loosens. \code{NULL} uses the regime preset.
+#' @param seasonality Amplitude of the sinusoidal seasonal multiplier applied
+#'   to spot rates (\code{CTo}) over time: \code{0} = no seasonality.
+#'   \code{NULL} uses the regime preset.
+#' @param max.S Maximum storage level. \code{NULL} defaults to \code{R}.
+#' @param seed Integer seed for reproducibility.
+#' @param path If non-NULL, writes the instance as JSON.  \code{TRUE} uses a
+#'   default filename \code{instance{nI}x{nJ}_{tau}_001.json}.
 #' @return The populated environment (invisibly).
 #' @export
 generate_instance <- function(
     nI = 1L, nJ = 1L, tau = 4L,
-    nB = 5L, nCS = 10L, nCO = 1L, rate = 4.0,
-    Q = list(vals = c(0L, 4L, 8L), prob = c(0.1, 0.7, 0.2)),
-    D = list(vals = c(0L, 4L, 8L), prob = c(0.1, 0.5, 0.4)),
-    W = list(vals = c(7.0, 22.0), prob = NULL),
-    alpha = NULL,
-    max.S = NULL,
-    seed = NULL,
-    path = NULL
+    nB = 5L, nCS = 10L, nCO = 1L, rate = 1.0,
+    regime      = c("balanced", "tight", "loose", "volatile"),
+    Q           = NULL,
+    D           = NULL,
+    W           = NULL,
+    alpha       = NULL,
+    cap_factor  = NULL,
+    seasonality = NULL,
+    max.S       = NULL,
+    seed        = NULL,
+    path        = NULL
 ) {
   if (!is.null(seed)) set.seed(seed)
 
-  env <- new.env(parent = baseenv())
+  regime <- match.arg(regime)
+  R      <- as.integer(round(10.0 * rate))
 
-  # 1. Auction structure + routing
+  # ── Resolve regime presets; explicit args override ─────────────────────────
+  defs <- .regime_defaults(regime, R, nI, nJ)
+  if (is.null(Q))           Q           <- defs$Q
+  if (is.null(D))           D           <- defs$D
+  if (is.null(W))           W           <- defs$W
+  if (is.null(alpha))       alpha       <- defs$alpha
+  if (is.null(cap_factor))  cap_factor  <- defs$cap_factor
+  if (is.null(seasonality)) seasonality <- defs$seasonality
+
+  # Normalise W probabilities (uniform if prob = NULL)
+  if (is.null(W$prob)) {
+    W$prob <- rep(1.0 / length(W$vals), length(W$vals))
+  }
+  W$prob <- W$prob / sum(W$prob)
+
+  # ── Auction structure + routing ────────────────────────────────────────────
+  env <- new.env(parent = baseenv())
   generate_cssap(env, tau = tau, nI = nI, nJ = nJ,
                  nB = nB, nCS = nCS, nCO = nCO, rate = rate)
 
-  # 2. Carrier post-processing
+  # ── Carrier post-processing ────────────────────────────────────────────────
   env$carrierIdx <- setNames(as.list(seq_along(env$winner)), names(env$winner))
   env$winnerKey  <- names(env$winner)
-  df <- data.frame(
+  df             <- data.frame(
     Carrier = names(env$winner)[env$carriers[seq(env$nL_)]],
-    CTb = env$CTb
+    CTb     = env$CTb
   )
   env$CTb_list <- split(df$CTb, df$Carrier)
 
-  # 3. Stochastic parameters
-  env$max.S <- if (is.null(max.S)) env$R else as.integer(max.S)
-  env$nSI   <- env$max.S + 1L
-  env$nSJ   <- 2L * env$max.S + 1L
-  env$nSdx  <- (env$nSI ^ env$nI) * (env$nSJ ^ env$nJ)
-  env$nA    <- env$max.S + 1L
-
-  env$alpha <- if (is.null(alpha)) {
-    c(rep(5.0, env$nI), rep(c(4.0, 8.0), each = env$nJ))
-  } else {
-    alpha
-  }
-
-  env$Q <- Q
-  env$D <- D
-  if (is.null(W$prob)) {
-    W$prob <- dnorm(W$vals, 18.0, 12.0)
-    W$prob <- W$prob / sum(W$prob)
-  }
-  env$W <- W
-
-  env$nQ <- length(env$Q$vals)
-  env$nD <- length(env$D$vals)
-  env$nW <- length(env$W$vals)
-  env$nOmega <- (env$nQ ^ env$nI) * (env$nD ^ env$nJ) * (env$nW ^ env$nCO)
-
-  # 4. Mixed-radix keys
-  env$stateKeys <- get_adjustment_weights(env)
-  env$flowKeys  <- c(
-    env$nQ ^ (seq(env$nI) - 1L),
-    (env$nQ ^ env$nI) * env$nD ^ (seq(env$nJ) - 1L),
-    (env$nQ ^ env$nI) * (env$nD ^ env$nJ) * env$nW ^ (seq(env$nCO) - 1L)
+  # ── Carrier capacity with cap_factor ──────────────────────────────────────
+  # Cb: per-carrier strategic capacity, R × nCS.  Scaled by cap_factor.
+  env$Cb <- matrix(
+    pmax(1L, as.integer(round(
+      matrix(sample(R, tau * env$nCS, replace = TRUE), nrow = tau) * cap_factor
+    ))),
+    nrow = tau
+  )
+  # Co: spot-carrier capacity per period (constant over time).
+  env$Co <- matrix(
+    rep(pmax(1L, as.integer(R * nI * cap_factor / nCO)), tau * nCO),
+    ncol = nCO
   )
 
-  # 5. Optional JSON output
+  # ── Spot rates (CTo) with optional seasonality ────────────────────────────
+  # CTo initialises the LP warm-start for each period; W$vals are the realized
+  # rates used in the DP.  Seasonality adds a sinusoidal multiplier over time.
+  base_spot <- pmax(
+    matrix(rnorm(tau * nCO * env$nL, 20.0, 10.0), nrow = tau),
+    5.0
+  )
+  if (seasonality > 0) {
+    season_mult <- 1.0 + seasonality * sin(2.0 * pi * seq(0L, tau - 1L) / tau)
+    base_spot   <- sweep(base_spot, 1L, season_mult, `*`)
+  }
+  env$CTo <- base_spot
+
+  # ── Stochastic parameters ──────────────────────────────────────────────────
+  env$max.S  <- if (is.null(max.S)) R else as.integer(max.S)
+  env$nSI    <- env$max.S + 1L
+  env$nSJ    <- 2L * env$max.S + 1L
+  env$nSdx   <- (env$nSI ^ nI) * (env$nSJ ^ nJ)
+  env$nA     <- env$max.S + 1L
+  env$alpha  <- alpha
+  env$Q      <- Q
+  env$D      <- D
+  env$W      <- W
+  env$nQ     <- length(Q$vals)
+  env$nD     <- length(D$vals)
+  env$nW     <- length(W$vals)
+  env$nOmega <- (env$nQ ^ nI) * (env$nD ^ nJ) * (env$nW ^ nCO)
+
+  # ── Mixed-radix keys ──────────────────────────────────────────────────────
+  env$stateKeys <- get_adjustment_weights(env)
+  env$flowKeys  <- c(
+    env$nQ ^ (seq(nI) - 1L),
+    (env$nQ ^ nI) * env$nD ^ (seq(nJ) - 1L),
+    (env$nQ ^ nI) * (env$nD ^ nJ) * env$nW ^ (seq(nCO) - 1L)
+  )
+
+  # ── Optional JSON output ───────────────────────────────────────────────────
   if (!is.null(path)) {
     if (isTRUE(path)) {
-      path <- sprintf("instance%dx%d_%d_001.json", env$nI, env$nJ, env$tau)
+      path <- sprintf("instance%dx%d_%d_001.json", nI, nJ, tau)
     }
     json <- jsonlite::toJSON(
       sapply(sort(names(env)), get, envir = env, simplify = FALSE),
