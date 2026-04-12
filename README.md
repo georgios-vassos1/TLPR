@@ -10,7 +10,7 @@ The methodology and numerical results are described in:
 
 ## Overview
 
-The CSSAP models a shipper who must decide, each period, how many container slots to reserve across a mix of contracted strategic carriers and spot-market carriers. Demand and supply are stochastic. The package solves the problem via exact stochastic DP (Bellman backward induction) and evaluates capacity-reservation policies against a multi-period LP formulation.
+The CSSAP models a shipper who must decide, each period, how many container slots to reserve across a mix of contracted strategic carriers and spot-market carriers. Demand and supply are stochastic. The package solves the problem via exact stochastic DP (Bellman backward induction) and a family of approximate DP methods that scale to instances where exact DP is intractable.
 
 **Core pipeline:**
 
@@ -19,16 +19,25 @@ generate_instance()          # build a problem instance (auction, routing, stoch
     ↓
 dp_config()                  # populate env with state/action/scenario index arrays
     ↓
-rolling_dp_cx()              # backward induction (C++/OpenMP, memory-efficient)
+rolling_dp_ptr()             # exact backward induction via XPtr (C++/OpenMP)
   — or —
-computeEnvironmentCx()       # materialise full transit table (R+C++)
-dynamic_programming()        # backward induction over transit table (R)
+rolling_dp_vfa()             # separable VFA approximation (sampled states, 1-pass)
+  — or —
+rolling_dp_rtdp_p2()         # RTDP Phase 2/3: trajectory-guided ADP (scales to |S|>50k)
     ↓
 system_transition()          # simulate a policy on sampled scenario paths
     ↓
 multiperiod_expansion()      # build multi-period LP
 solve_lp()                   # solve with HiGHS
 ```
+
+**Choosing a solver:**
+
+| Instance size | nSdx | Recommended |
+|---|---|---|
+| Small | < 3k | `rolling_dp_ptr` (exact, fast) |
+| Medium | 3k – 50k | `rolling_dp_vfa` or `rolling_dp_rtdp_p2` |
+| Large | > 50k | `rolling_dp_rtdp_p2` (6× speedup at nSdx=53k, ~6% error) |
 
 ---
 
@@ -49,7 +58,7 @@ devtools::install("path/to/TLPR")
 |---|---|
 | C++17 compiler | clang++ (macOS) or g++ (Linux) |
 | [HiGHS](https://highs.dev) | via the `highs` R package |
-| OpenMP | for parallel LP solves in `computeEnvironmentCx` / `bellmanUpdateCx` |
+| OpenMP | for parallel LP solves in `bellmanUpdatePtr` / `computeEnvironmentCx` |
 | nlohmann/json | header-only; bundled or via Homebrew (`brew install nlohmann-json`) |
 
 On Apple Silicon, set the include path in `src/Makevars`:
@@ -64,20 +73,29 @@ PKG_CXXFLAGS += -I/opt/homebrew/opt/nlohmann-json/include
 
 ```r
 library(TLPR)
+source("R/vfa.R"); source("R/dp_vfa.R"); source("R/rtdp.R")
 
-# 1. Generate a 1×1 instance (1 origin, 1 destination, tau=4 periods)
-env <- generate_instance(nI = 1, nJ = 1, tau = 4, seed = 42)
-
-# 2. Configure DP index structures
+# 1. Generate a 2×2 instance (2 origins, 2 destinations, tau=4 periods)
+tmpf <- tempfile(fileext = ".json")
+generate_instance(nI = 2, nJ = 2, tau = 4, seed = 42, path = tmpf)
+env <- new.env()
+jsonlite::fromJSON(tmpf) |> list2env(envir = env)
+env$from_i <- lapply(env$from_i, as.integer)
+env$to_j   <- lapply(env$to_j,   as.integer)
+create_model(env)
 dp_config(env)
 
-# 3. Solve via memory-efficient rolling Bellman updates (C++)
-dp <- rolling_dp_cx(env, path_to_json, numThreads = 8L)
+# 2a. Exact DP (feasible when nSdx < ~3k)
+dp <- rolling_dp_ptr(env, tmpf, numThreads = 8L)
+cat("V[t=1, s=1] =", dp$V[1L, 1L], "\n")
 
-# 4. Inspect value function at initial state S0 = (0, 8)
-i0 <- which(env$stateSupport[env$Sdx[, 1L]] == 0L &
-            env$extendedStateSupport[env$Sdx[, 2L]] == 8L)
-cat("V[t=1, S0] =", dp$V[1L, i0])
+# 2b. RTDP Phase 2/3 (large instances; convergence-based stopping)
+r2 <- rolling_dp_rtdp_p2(env, tmpf,
+                           n_iter = 30L, n_traj = 50L,
+                           tol = 1e-2, patience = 3L,
+                           numThreads = 8L, seed = 42L)
+cat("Converged in", r2$n_done, "iterations\n")
+cat("V[t=1, s=1] ≈", r2$V_approx[1L, 1L], "\n")
 ```
 
 ---
@@ -95,6 +113,12 @@ Run the numbered pipeline in order; each script caches its output for the next.
 | `demo/05_portfolio.R` | Evaluate portfolio contract over action grid |
 | `demo/06_dp_scalability.R` | Benchmark DP across state-space sizes and topologies |
 | `demo/07_rolling_dp.R` | Compare `dynamic_programming` vs `rolling_dp_cx` (value cross-check) |
+| `demo/08_xptr_equivalence.R` | Verify XPtr API (`rolling_dp_ptr`) matches JSON-file counterparts |
+| `demo/09_hilbert_benchmark.R` | Lexicographic vs Hilbert traversal correctness and timing |
+| `demo/10_vfa_benchmark.R` | Separable VFA approximation quality vs exact DP |
+| `demo/11_vfa_analysis.R` | Multi-seed, multi-regime VFA error analysis |
+| `demo/12_vfa_scaling.R` | VFA execution time vs instance size; 60-second frontier |
+| `demo/13_rtdp_benchmark.R` | RTDP Phase 1/2/3: quality, speedup, convergence, large-instance quality |
 | `demo/reproduce_paper.R` | End-to-end reproduction of all paper assertions |
 
 Shared instance configuration lives in `demo/config/instance1x1_4.R`.
@@ -111,15 +135,28 @@ Shared instance configuration lives in `demo/config/instance1x1_4.R`.
 | `generate_cssap()` | Generate auction structure and routing (lower level) |
 | `dp_config()` | Populate `env` with `Sdx`, `Adx`, `scndx`, `scnpb`, `flowKeys`, etc. |
 
-### Dynamic programming
+### Exact dynamic programming
 
 | Function | Description |
 |---|---|
-| `rolling_dp_cx()` | Memory-efficient DP: one `bellmanUpdateCx` call per period; O(nSdx × nAdx) working memory |
+| `rolling_dp_ptr()` | Exact backward induction via XPtr; one `bellmanUpdatePtr` call per period |
+| `rolling_dp_cx()` | Memory-efficient DP via `bellmanUpdateCx`; older JSON-file API |
 | `dynamic_programming()` | R-level backward induction over a pre-materialised transit table |
 | `computeEnvironmentCx()` | C++/OpenMP transit table computation (all periods, parallel LP solves) |
-| `bellmanUpdateCx()` | Single-period Bellman update in C++ (called by `rolling_dp_cx`) |
+| `bellmanUpdatePtr()` | Single-period Bellman update (C++); accepts optional `stateSubset` for sampling |
+| `bellmanUpdateCx()` | Single-period Bellman update, JSON-file API |
 | `system_transition()` | Simulate a DP policy on sampled scenario paths |
+
+### Approximate DP (ADP)
+
+| Function | Description |
+|---|---|
+| `rolling_dp_vfa()` | Separable VFA: OLS-fit piecewise-linear approximation, optional K-state sampling |
+| `rolling_dp_rtdp()` | RTDP Phase 1: iterative K-state sampling with VFA cache/blend |
+| `rolling_dp_rtdp_p2()` | RTDP Phase 2/3: trajectory-guided ADP; LP cost O(n_traj × τ × n_A), independent of \|S\| |
+| `simulateStepPtr()` | LP-accurate single-step forward simulation; returns greedy-optimal next state and action |
+| `vfa_fit()` | Fit separable VFA from (possibly sparse) cached value observations |
+| `vfa_eval()` | Evaluate separable VFA over all states |
 
 ### LP / assignment
 
@@ -155,8 +192,14 @@ Shared instance configuration lives in `demo/config/instance1x1_4.R`.
 | `[4]` | scenario index (1-based) |
 | `[5]` | period (1-based) |
 
-**`rolling_dp_cx` vs `dynamic_programming`:**
-Prefer `rolling_dp_cx` for large instances — it avoids materialising the full `tau × nSdx × nAdx × nScen × 6` transit table. Both paths implement identical Bellman aggregation (raw `scnpb` partial sums over feasible scenarios; infeasible scenarios contribute 0 probability mass, penalising risky actions).
+**`rolling_dp_ptr` vs `rolling_dp_cx`:**
+Both implement identical Bellman aggregation. Prefer `rolling_dp_ptr` — it uses the XPtr API, avoids redundant JSON parsing on each call, and accepts a `stateSubset` parameter for sampled updates. `rolling_dp_cx` is retained for backward compatibility.
+
+**ADP scaling property (`rolling_dp_rtdp_p2`):**
+Each iteration runs `n_traj` forward trajectories via `simulateStepPtr`. LP cost is O(n_traj × τ × n_A) per iteration — independent of |S|. Only trajectory-visited states receive a Bellman update. Convergence is checked using the mean relative change in V_approx[1,] over a `patience`-iteration window; early stopping saves 40–70% of the iteration budget in practice.
+
+**Separable VFA:**
+`V(s) ≈ Σ_k v_k(s_k)` where each `v_k` is a piecewise-linear function of component `k` of the state, fitted by OLS from cached exact Bellman values. The VFA fills unvisited states in the blended `V_next = cache (priority) + VFA (fallback)`.
 
 **`solve_lp` interface:** accepts a Gurobi-style model list (`A`, `obj`, `rhs`, `sense`, `modelsense`, `vtype`, `lb`, `ub`). Returns `list(x, objval, status)`.
 
@@ -169,7 +212,7 @@ Prefer `rolling_dp_cx` for large instances — it avoids materialising the full 
 ## Testing
 
 ```r
-# Run the full test suite (177 tests)
+# Run the full test suite
 devtools::test()
 # or
 Rscript -e "testthat::test_local('.')"
@@ -190,3 +233,4 @@ Rscript -e "testthat::test_local('.')"
 - `begin_suppress_stdout` / `end_suppress_stdout` redirect fd 1 to `/dev/null` to silence the HiGHS banner. They return an `int` fd; `end_suppress_stdout(-1)` is a no-op.
 - `CartesianProductIntParallel` and `CartesianProductIntParallelxLB` use `std::thread` / `std::async` (not OpenMP); thread count is a direct parameter.
 - Instance JSON files must be written via `generate_instance(path = ...)` after any change to problem parameters — C++ functions read directly from the JSON at call time.
+- `vfa_fit()` and `vfa_eval()` are defined in `R/vfa.R` and must be sourced explicitly (`source("R/vfa.R")`); they are not exported via `NAMESPACE`.
