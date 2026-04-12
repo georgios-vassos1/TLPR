@@ -118,6 +118,7 @@ Run the numbered pipeline in order; each script caches its output for the next.
 | `demo/11_vfa_analysis.R` | Multi-seed, multi-regime VFA error analysis |
 | `demo/12_vfa_scaling.R` | VFA execution time vs instance size; 60-second frontier |
 | `demo/13_rtdp_benchmark.R` | RTDP Phase 1/2/3: quality, speedup, convergence, large-instance quality |
+| `demo/14_capacity_opt_multi.R` | Capacity optimisation across 2×1/1×2/2×2 topologies; §5.2.2 multi-topology table |
 | `demo/rerun_mc_figures.R` | Recompute Table 3, SAA/regret figures; `FIGURES_ONLY=1` to skip computation |
 | `demo/reproduce_paper.R` | End-to-end reproduction of all paper assertions |
 
