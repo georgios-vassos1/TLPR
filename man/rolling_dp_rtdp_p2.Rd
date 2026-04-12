@@ -9,7 +9,7 @@ rolling_dp_rtdp_p2(
   jsonFile,
   n_iter = 10L,
   n_traj = 50L,
-  s0 = 1L,
+  s0 = NULL,
   numThreads = 8L,
   seed = NULL
 )
@@ -26,8 +26,8 @@ rolling_dp_rtdp_p2(
 \item{n_traj}{Forward trajectories per iteration.  Default 50.}
 
 \item{s0}{Initial state index (1-based) for all trajectories.  \code{NULL}
-samples a fresh random starting state each trajectory.  Default 1
-(= all-zero inventory state).}
+(default) samples a fresh random starting state each trajectory, providing
+broad state-space coverage.  Set to an integer to fix a single start.}
 
 \item{numThreads}{OMP threads for \code{bellmanUpdatePtr}.  Default 8.}
 
