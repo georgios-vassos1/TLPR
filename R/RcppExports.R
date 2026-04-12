@@ -33,14 +33,14 @@ computeEnvironmentPtr <- function(problem_ptr, t, stateSupport, flowSupport, num
 
 #' @useDynLib TLPR
 #' @export
-bellmanUpdateCx <- function(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, traversalOrder = "lexicographic", chunkSize = 32L) {
-    .Call('_TLPR_bellmanUpdateCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize)
+bellmanUpdateCx <- function(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, traversalOrder = "lexicographic", chunkSize = 32L, stateSubset = NULL) {
+    .Call('_TLPR_bellmanUpdateCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize, stateSubset)
 }
 
 #' @useDynLib TLPR
 #' @export
-bellmanUpdatePtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, traversalOrder = "lexicographic", chunkSize = 32L) {
-    .Call('_TLPR_bellmanUpdatePtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize)
+bellmanUpdatePtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, traversalOrder = "lexicographic", chunkSize = 32L, stateSubset = NULL) {
+    .Call('_TLPR_bellmanUpdatePtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize, stateSubset)
 }
 
 #' @useDynLib TLPR

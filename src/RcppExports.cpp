@@ -88,8 +88,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // bellmanUpdateCx
-Rcpp::List bellmanUpdateCx(const std::string& jsonFile, int t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads, const std::string& traversalOrder, int chunkSize);
-RcppExport SEXP _TLPR_bellmanUpdateCx(SEXP jsonFileSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP, SEXP traversalOrderSEXP, SEXP chunkSizeSEXP) {
+Rcpp::List bellmanUpdateCx(const std::string& jsonFile, int t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads, const std::string& traversalOrder, int chunkSize, SEXP stateSubset);
+RcppExport SEXP _TLPR_bellmanUpdateCx(SEXP jsonFileSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP, SEXP traversalOrderSEXP, SEXP chunkSizeSEXP, SEXP stateSubsetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -103,13 +103,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type traversalOrder(traversalOrderSEXP);
     Rcpp::traits::input_parameter< int >::type chunkSize(chunkSizeSEXP);
-    rcpp_result_gen = Rcpp::wrap(bellmanUpdateCx(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize));
+    Rcpp::traits::input_parameter< SEXP >::type stateSubset(stateSubsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(bellmanUpdateCx(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize, stateSubset));
     return rcpp_result_gen;
 END_RCPP
 }
 // bellmanUpdatePtr
-Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, int t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads, const std::string& traversalOrder, int chunkSize);
-RcppExport SEXP _TLPR_bellmanUpdatePtr(SEXP problem_ptrSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP, SEXP traversalOrderSEXP, SEXP chunkSizeSEXP) {
+Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, int t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads, const std::string& traversalOrder, int chunkSize, SEXP stateSubset);
+RcppExport SEXP _TLPR_bellmanUpdatePtr(SEXP problem_ptrSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP, SEXP traversalOrderSEXP, SEXP chunkSizeSEXP, SEXP stateSubsetSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -123,7 +124,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type traversalOrder(traversalOrderSEXP);
     Rcpp::traits::input_parameter< int >::type chunkSize(chunkSizeSEXP);
-    rcpp_result_gen = Rcpp::wrap(bellmanUpdatePtr(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize));
+    Rcpp::traits::input_parameter< SEXP >::type stateSubset(stateSubsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(bellmanUpdatePtr(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, traversalOrder, chunkSize, stateSubset));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -319,8 +321,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_loadProblemDataCx", (DL_FUNC) &_TLPR_loadProblemDataCx, 1},
     {"_TLPR_computeEnvironmentCx", (DL_FUNC) &_TLPR_computeEnvironmentCx, 5},
     {"_TLPR_computeEnvironmentPtr", (DL_FUNC) &_TLPR_computeEnvironmentPtr, 5},
-    {"_TLPR_bellmanUpdateCx", (DL_FUNC) &_TLPR_bellmanUpdateCx, 10},
-    {"_TLPR_bellmanUpdatePtr", (DL_FUNC) &_TLPR_bellmanUpdatePtr, 10},
+    {"_TLPR_bellmanUpdateCx", (DL_FUNC) &_TLPR_bellmanUpdateCx, 11},
+    {"_TLPR_bellmanUpdatePtr", (DL_FUNC) &_TLPR_bellmanUpdatePtr, 11},
     {"_TLPR_createHIGHSmodel", (DL_FUNC) &_TLPR_createHIGHSmodel, 0},
     {"_TLPR_createTransportVarsCx", (DL_FUNC) &_TLPR_createTransportVarsCx, 10},
     {"_TLPR_addCapacityConstraintsCx", (DL_FUNC) &_TLPR_addCapacityConstraintsCx, 10},

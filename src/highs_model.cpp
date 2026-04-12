@@ -660,8 +660,8 @@ Eigen::MatrixXd computeEnvironmentPtr(SEXP problem_ptr, int t,
 bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& stateSupport,
                   const std::vector<double>& flowSupport, const std::vector<double>& scnpb,
                   const std::vector<double>& alpha, const std::vector<double>& V_next,
-                  int numThreads, StateOrder order = StateOrder::Lexicographic,
-                  int chunkSize = 32) {
+                  int numThreads, StateOrder order = StateOrder::Lexicographic, int chunkSize = 32,
+                  const std::vector<int>& stateSubset = {}) {
 
   const int nInventoryLevels = pd.R + 1;
   const int nFlowLevels = pd.nQ;
@@ -699,6 +699,25 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
   std::vector<std::vector<int>> stateSupportStack =
       stackStateIdxVectors(nInventoryLevels, nOrigins, nDestinations);
   std::vector<std::vector<int>> stateIndices = CartesianProductIntSTL(stateSupportStack);
+
+  // Full grid size — used for output array allocation so that callers can
+  // always index by the canonical lex state index regardless of sampling.
+  const int nSdxFull = static_cast<int>(stateIndices.size());
+
+  // Optionally restrict to a caller-supplied subset of states (0-based lex
+  // indices).  Enables sampled Approximate Value Iteration: only the LP
+  // subproblems for the sampled states are solved; output arrays retain full
+  // nSdxFull length with NA/0 for unsampled positions.
+  if (!stateSubset.empty()) {
+    std::vector<std::vector<int>> filtered;
+    filtered.reserve(stateSubset.size());
+    for (int idx : stateSubset) {
+      if (idx >= 0 && idx < nSdxFull) {
+        filtered.push_back(stateIndices[idx]);
+      }
+    }
+    stateIndices = std::move(filtered);
+  }
 
   if (order == StateOrder::Hilbert) {
     sortStatesByHilbert(stateIndices, nOrigins, nDestinations, storageLimit);
@@ -763,11 +782,12 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
     baseRhs[nStrategicCarriers + idx] = Co[t][idx];
   }
 
-  // Per-(i,j) accumulators
-  std::vector<double> sumW(nSdx * nAdx, 0.0);
-  std::vector<double> sumCost(nSdx * nAdx, 0.0);
-  std::vector<double> sumV(nSdx * nAdx, 0.0);
-  std::vector<int> hasFeas(nSdx * nAdx, 0);
+  // Per-(i,j) accumulators — sized to the full grid so that lexPos[i] (which
+  // maps to the canonical full-grid position) is always a valid index.
+  std::vector<double> sumW(nSdxFull * nAdx, 0.0);
+  std::vector<double> sumCost(nSdxFull * nAdx, 0.0);
+  std::vector<double> sumV(nSdxFull * nAdx, 0.0);
+  std::vector<int> hasFeas(nSdxFull * nAdx, 0);
 
   std::atomic<bool> anyThreadFailed{false};
   std::string threadErrorMsg;
@@ -928,10 +948,12 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
   }
 
   // Post-OMP Bellman update (serial)
-  Rcpp::NumericVector Q_t(nSdx * nAdx, NA_REAL);
-  Rcpp::NumericVector V_t(nSdx, NA_REAL);
-  Rcpp::NumericVector pi_star_t(nSdx * nAdx, 0.0);
-  Rcpp::NumericVector pi_rand_t(nSdx * nAdx, 0.0);
+  // Output arrays are full-grid sized so R can always index by lex state index.
+  // Unsampled states retain NA (V_t, Q_t) or 0 (pi_*).
+  Rcpp::NumericVector Q_t(nSdxFull * nAdx, NA_REAL);
+  Rcpp::NumericVector V_t(nSdxFull, NA_REAL);
+  Rcpp::NumericVector pi_star_t(nSdxFull * nAdx, 0.0);
+  Rcpp::NumericVector pi_rand_t(nSdxFull * nAdx, 0.0);
 
   for (int i = 0; i < nSdx; ++i) {
     const auto& stateIdx = stateIndices[i];
@@ -995,11 +1017,18 @@ Rcpp::List bellmanUpdateCx(const std::string& jsonFile, int t,
                            const std::vector<double>& flowSupport, const std::vector<double>& scnpb,
                            const std::vector<double>& alpha, const std::vector<double>& V_next,
                            int numThreads = 8, const std::string& traversalOrder = "lexicographic",
-                           int chunkSize = 32) {
+                           int chunkSize = 32, SEXP stateSubset = R_NilValue) {
   StateOrder order =
       (traversalOrder == "hilbert") ? StateOrder::Hilbert : StateOrder::Lexicographic;
+  std::vector<int> subset;
+  if (!Rf_isNull(stateSubset) && Rf_length(stateSubset) > 0) {
+    const int* p = INTEGER(stateSubset);
+    const int n = Rf_length(stateSubset);
+    subset.resize(n);
+    std::transform(p, p + n, subset.begin(), [](int x) { return x - 1; });
+  }
   return bellmanUpdateImpl(parseProblemData(jsonFile), t, stateSupport, flowSupport, scnpb, alpha,
-                           V_next, numThreads, order, chunkSize);
+                           V_next, numThreads, order, chunkSize, subset);
 }
 
 // XPtr wrapper — dereferences pointer then delegates to the canonical impl.
@@ -1010,16 +1039,23 @@ Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, int t, const std::vector<double>& 
                             const std::vector<double>& flowSupport,
                             const std::vector<double>& scnpb, const std::vector<double>& alpha,
                             const std::vector<double>& V_next, int numThreads = 8,
-                            const std::string& traversalOrder = "lexicographic",
-                            int chunkSize = 32) {
+                            const std::string& traversalOrder = "lexicographic", int chunkSize = 32,
+                            SEXP stateSubset = R_NilValue) {
   Rcpp::XPtr<ProblemData> pd(problem_ptr);
   if (!pd) {
     Rcpp::stop("problem_ptr is NULL or expired");
   }
   StateOrder order =
       (traversalOrder == "hilbert") ? StateOrder::Hilbert : StateOrder::Lexicographic;
+  std::vector<int> subset;
+  if (!Rf_isNull(stateSubset) && Rf_length(stateSubset) > 0) {
+    const int* p = INTEGER(stateSubset);
+    const int n = Rf_length(stateSubset);
+    subset.resize(n);
+    std::transform(p, p + n, subset.begin(), [](int x) { return x - 1; });
+  }
   return bellmanUpdateImpl(*pd, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads,
-                           order, chunkSize);
+                           order, chunkSize, subset);
 }
 
 // Create a HiGHS model (replaces createGRBmodel)
