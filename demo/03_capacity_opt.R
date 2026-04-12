@@ -115,6 +115,72 @@ cpu_initial <- CostPerTEU(mp_model, x0,         v, capdx)
 cpu_optimal <- CostPerTEU(mp_model, round(x$par), v, capdx)
 cat(sprintf("[03] CostPerTEU: initial=%.4f  optimal=%.4f\n", cpu_initial, cpu_optimal))
 
+## -- Section 5.2.2 (bis): analytical gradient via LP duals ------
+##
+## By the LP envelope theorem, d(LP_objval)/d(rhs_i) = dual_i.
+## The capacity constraints sit at rows capdx in the multi-period model, so
+##   d f / d x[i] = dual[capdx[i]] + v[i]
+## This lets L-BFGS-B use the exact gradient from a single LP solve per step
+## instead of (dim(x)+1) LP solves for numerical finite differences.
+
+dual_cache <- new.env(parent = emptyenv())
+dual_cache$x    <- NULL
+dual_cache$dual <- NULL
+
+f_dual <- function(model, x, v, capdx) {
+  model$rhs[capdx] <- x
+  opt <- solve_lp(model)
+  if (is.null(opt$objval)) return(Inf)
+  dual_cache$x    <- x
+  dual_cache$dual <- opt$dual
+  opt$objval + sum(v * x)
+}
+
+gr_dual <- function(model, x, v, capdx) {
+  # L-BFGS-B calls fn before gr at the same x; re-solve only if needed
+  if (!isTRUE(all.equal(dual_cache$x, x))) {
+    model$rhs[capdx] <- x
+    opt <- solve_lp(model)
+    dual_cache$x    <- x
+    dual_cache$dual <- opt$dual
+  }
+  dual_cache$dual[capdx] + v
+}
+
+## Gradient verification at x0 (analytical vs central finite differences)
+eps  <- 1e-5
+g_fd <- vapply(seq_along(x0), function(i) {
+  xp <- x0; xp[i] <- xp[i] + eps
+  xm <- x0; xm[i] <- xm[i] - eps
+  (f(mp_model, xp, v, capdx) - f(mp_model, xm, v, capdx)) / (2 * eps)
+}, numeric(1L))
+
+f_dual(mp_model, x0, v, capdx)          # fills dual_cache
+g_an <- gr_dual(mp_model, x0, v, capdx)
+
+cat("[03] Gradient verification at x0:\n")
+cat(sprintf("  Analytic:  %s\n", paste(round(g_an, 4L), collapse = " ")))
+cat(sprintf("  Finite-Δ:  %s\n", paste(round(g_fd, 4L), collapse = " ")))
+cat(sprintf("  Max |err|: %.2e\n", max(abs(g_an - g_fd))))
+
+## Optimise with analytical gradient
+x.dual  <- optim(x0, f_dual, gr = gr_dual,
+                 model = mp_model, v = v, capdx = capdx,
+                 method = "L-BFGS-B", lower = 0.0, upper = 10.0, control = ctrl)
+
+v_dual  <- f(mp_model, round(x.dual$par), v, capdx)
+
+cat(sprintf("[03] Dual-gradient optimal cost       = %.2f\n", v_dual))
+cat(sprintf("[03] Dual-gradient capacities:          %s\n",
+            paste(round(x.dual$par), collapse = " ")))
+cat(sprintf("[03] Function evals: numerical=%d  analytical=%d\n",
+            x$counts[1L], x.dual$counts[1L]))
+
+## KKT check: gradient at optimum should be ≈ 0 (or pointing inward at bounds)
+f_dual(mp_model, x.dual$par, v, capdx)
+g_opt <- gr_dual(mp_model, x.dual$par, v, capdx)
+cat(sprintf("[03] |grad| at dual-gradient optimum:   %.2e  (expect ≈ 0)\n", max(abs(g_opt))))
+
 ## -- Table 3: 1,000,000 random capacity vectors --------------
 cat("[03] Sampling 1,000,000 random capacity vectors...\n")
 M          <- 1000000L

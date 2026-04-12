@@ -373,7 +373,11 @@ optimal_assignment <- function(model, obj_, rhs_, params = list(OutputFlag = 0L)
 #' @param model A list with fields \code{A}, \code{obj}, \code{rhs},
 #'   \code{sense}, \code{modelsense}, and optionally \code{lb}, \code{ub},
 #'   \code{vtype}.
-#' @return Named list: \code{objval}, \code{x}, \code{status}.
+#' @return Named list: \code{objval}, \code{x}, \code{dual}, \code{status}.
+#'   \code{dual} is the vector of row dual values (shadow prices); for a
+#'   minimisation with \code{<=} constraints, binding constraint duals are
+#'   non-positive.  By the LP envelope theorem,
+#'   \eqn{\partial \text{objval} / \partial \text{rhs}_i = \text{dual}_i}.
 #' @export
 solve_lp <- function(model) {
   lhs_hi <- ifelse(model$sense %in% c(">", "="), model$rhs, -Inf)
@@ -396,9 +400,11 @@ solve_lp <- function(model) {
     ),
     finally = end_suppress_stdout(saved_fd)
   )
+  ok <- res$status_message == "Optimal"
   list(
-    objval = if (res$status_message == "Optimal") res$objective_value else NULL,
-    x      = if (res$status_message == "Optimal") res$primal_solution  else NULL,
+    objval = if (ok) res$objective_value          else NULL,
+    x      = if (ok) res$primal_solution           else NULL,
+    dual   = if (ok) res$solver_msg$row_dual       else NULL,
     status = toupper(res$status_message)
   )
 }
