@@ -45,6 +45,12 @@ bellmanUpdatePtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, a
 
 #' @useDynLib TLPR
 #' @export
+simulateStepPtr <- function(problem_ptr, t, state_idx, scenario_kdx, stateSupport, flowSupport, alpha, V_next) {
+    .Call('_TLPR_simulateStepPtr', PACKAGE = 'TLPR', problem_ptr, t, state_idx, scenario_kdx, stateSupport, flowSupport, alpha, V_next)
+}
+
+#' @useDynLib TLPR
+#' @export
 createHIGHSmodel <- function() {
     .Call('_TLPR_createHIGHSmodel', PACKAGE = 'TLPR')
 }

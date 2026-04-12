@@ -1059,6 +1059,244 @@ Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, int t, const std::vector<double>& 
                            order, chunkSize, subset);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// simulateStepImpl — LP-accurate one-step forward simulation for RTDP Phase 2.
+//
+// Given a (state, scenario) pair, solves nAdx LPs (one per action) with warm-
+// starting, picks the greedy-optimal action under V_next, and returns the
+// resulting transport cost, next state index, and chosen action.
+//
+// Scenario decomposition from flat kdx (0-based):
+//   k1 = kdx % nQdx          — index into inflowIndices[]
+//   k2 = (kdx / nQdx) % nDdx — index into outflowIndices[]
+//   k3 = kdx / (nQdx * nDdx) — index into spotRateIndices[]
+// This follows directly from the flowKeys mixed-radix encoding in dp_config.
+// ─────────────────────────────────────────────────────────────────────────────
+[[nodiscard]] static Rcpp::List
+simulateStepImpl(const ProblemData& pd, int t, int state_idx, int scenario_kdx,
+                 const std::vector<double>& stateSupport,
+                 const std::vector<double>& flowSupport,
+                 const std::vector<double>& alpha,
+                 const std::vector<double>& V_next) {
+
+  const int nInventoryLevels = pd.R + 1;
+  const int nFlowLevels      = pd.nQ;
+  const int nSpotRates       = pd.nW;
+  const int nOrigins         = pd.nI;
+  const int nDestinations    = pd.nJ;
+  const int nStrategicCarriers = pd.nCS;
+  const int nSpotCarriers    = pd.nCO;
+  const int nServices        = pd.nL_;
+  const int nLanes           = pd.nL;
+  const int nActions         = pd.R + 1;
+  const int storageLimit     = pd.R;
+
+  const auto& fromOrigin    = pd.fromOrigin;
+  const auto& toDestination = pd.toDestination;
+  const auto& Cb            = pd.Cb;
+  const auto& Co            = pd.Co;
+  const auto& bids          = pd.bids;
+  const auto& lanes         = pd.lanes;
+  const auto& winnerKeys    = pd.winnerKeys;
+  const auto& spotRates     = pd.spotRates;
+  const auto& spotRateSupport = pd.spotRateSupport;
+  const auto& stateKeys     = pd.stateKeys;
+  const auto& winners       = pd.winners;
+  const auto& CTb           = pd.CTb;
+  const auto& carrierIdx    = pd.carrierIdx;
+
+  const int n = nServices + nSpotCarriers * nLanes;
+  const std::vector<int> nWarehouses = {nOrigins, nDestinations};
+  const std::vector<int> limits(nOrigins + nDestinations, storageLimit);
+
+  const std::vector<double> extendedStateSupport = utils::mirrorAndNegateVector(stateSupport);
+
+  // Build state and flow index sets (same as bellmanUpdateImpl)
+  std::vector<std::vector<int>> stateSupportStack =
+      stackStateIdxVectors(nInventoryLevels, nOrigins, nDestinations);
+  const std::vector<std::vector<int>> stateIndices = CartesianProductIntSTL(stateSupportStack);
+
+  std::vector<int> flowIdxSingle = utils::createIndexVector(nFlowLevels);
+  std::vector<std::vector<int>> inflowIdxStack;
+  utils::appendIndexVectors(inflowIdxStack, flowIdxSingle, nOrigins);
+  const std::vector<std::vector<int>> inflowIndices = CartesianProductIntSTL(inflowIdxStack);
+
+  std::vector<std::vector<int>> outflowIdxStack;
+  utils::appendIndexVectors(outflowIdxStack, flowIdxSingle, nDestinations);
+  const std::vector<std::vector<int>> outflowIndices = CartesianProductIntSTL(outflowIdxStack);
+
+  std::vector<int> spotRateIdx = utils::createIndexVector(nSpotRates);
+  std::vector<std::vector<int>> spotRateIdxStack;
+  utils::appendIndexVectors(spotRateIdxStack, spotRateIdx, nSpotCarriers);
+  const std::vector<std::vector<int>> spotRateIndices = CartesianProductIntSTL(spotRateIdxStack);
+
+  const int nQdx = static_cast<int>(inflowIndices.size());
+  const int nDdx = static_cast<int>(outflowIndices.size());
+  const int nAdx = nActions;
+
+  // Decompose flat scenario index → (k1, k2, k3)
+  const int k1 = scenario_kdx % nQdx;
+  const int k2 = (scenario_kdx / nQdx) % nDdx;
+  const int k3 = scenario_kdx / (nQdx * nDdx);
+
+  const auto& stateIdx    = stateIndices[state_idx];
+  const auto& inflowIdx   = inflowIndices[k1];
+  const auto& outflowIdx  = outflowIndices[k2];
+  const auto& srIdx       = spotRateIndices[k3];
+
+  // ── Build LP for period t ──────────────────────────────────────────────────
+  Highs highs;
+  highs.setOptionValue("output_flag", false);
+  highs.setOptionValue("threads", 1);
+
+  std::vector<int> colIdx = createTransportVars(highs, n, winnerKeys, winners, bids, lanes,
+                                                CTb, spotRates[t], nSpotCarriers, nLanes);
+  try {
+    addCapacityConstraints(highs, colIdx, winnerKeys, winners, bids, carrierIdx,
+                           nSpotCarriers, nLanes, Cb[t], Co[t]);
+    addStorageLimitConstraints(highs, colIdx, winnerKeys, winners, bids, lanes,
+                               nSpotCarriers, nLanes, nWarehouses, limits);
+    addVolumeConstraint(highs, colIdx, n, 0); // placeholder; overridden per action below
+  } catch (const std::exception& e) {
+    Rcpp::stop("simulateStep: error building LP: %s", e.what());
+  }
+
+  const int volumeRow = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
+
+  // Destination storage bounds (state-dependent)
+  for (int idx = 0; idx < nDestinations; ++idx) {
+    const int p = nStrategicCarriers + nSpotCarriers + nOrigins + idx;
+    highs.changeRowBounds(p, -kHighsInf,
+                          storageLimit - extendedStateSupport[stateIdx[nOrigins + idx]]);
+  }
+
+  // Inflow bounds (scenario k1)
+  for (int d = 0; d < nOrigins; ++d) {
+    const int p = nStrategicCarriers + nSpotCarriers + d;
+    highs.changeRowBounds(p, -kHighsInf,
+                          stateSupport[stateIdx[d]] + flowSupport[inflowIdx[d]]);
+  }
+
+  // Spot rates (scenario k3)
+  std::vector<double> spotRatesTmp(nSpotCarriers * nLanes, 0.0);
+  for (int d = 0; d < nSpotCarriers; ++d) {
+    for (int l = 0; l < nLanes; ++l) {
+      spotRatesTmp[d * nLanes + l] = spotRateSupport[srIdx[d]];
+    }
+  }
+  updateSpotRates(highs, colIdx, spotRatesTmp, nServices, nSpotCarriers, nLanes);
+
+  // Hold cost for this state
+  double holdCost = 0.0;
+  for (int k = 0; k < nOrigins; ++k) {
+    holdCost += stateSupport[stateIdx[k]] * alpha[k];
+  }
+  for (int k = 0; k < nDestinations; ++k) {
+    const double sj = extendedStateSupport[stateIdx[nOrigins + k]];
+    holdCost += std::max(sj, 0.0) * alpha[nOrigins + k];
+    holdCost -= std::min(sj, 0.0) * alpha[nOrigins + nDestinations + k];
+  }
+
+  // ── Solve LP for each action; pick greedy-optimal ─────────────────────────
+  double Qstar = std::numeric_limits<double>::lowest();
+  int    j_star    = 0;
+  double cost_star = 0.0;
+  int    next_star = state_idx;
+
+  HighsBasis lastBasis;
+  bool hasBasis = false;
+
+  std::vector<double> x(n, 0.0);
+  std::vector<double> xI(nOrigins, 0.0);
+  std::vector<double> xJ(nDestinations, 0.0);
+  std::vector<double> nextState(nOrigins + nDestinations, 0.0);
+
+  for (int j = 0; j < nAdx; ++j) {
+    highs.changeRowBounds(volumeRow, static_cast<double>(j), static_cast<double>(j));
+    if (hasBasis) {
+      highs.setBasis(lastBasis);
+    }
+    highs.run();
+
+    if (highs.getModelStatus() != HighsModelStatus::kOptimal) {
+      continue;
+    }
+    lastBasis = highs.getBasis();
+    hasBasis  = true;
+
+    const double cost_j = highs.getObjectiveValue();
+    const auto&  sol    = highs.getSolution();
+
+    for (int d = 0; d < n; ++d) {
+      x[d] = sol.col_value[colIdx[d]];
+    }
+
+    std::fill(xI.begin(), xI.end(), 0.0);
+    for (int d = 0; d < nOrigins; ++d) {
+      for (const auto& l : fromOrigin[d]) {
+        xI[d] += x[l - 1];
+      }
+    }
+
+    std::fill(xJ.begin(), xJ.end(), 0.0);
+    for (int d = 0; d < nDestinations; ++d) {
+      for (const auto& l : toDestination[d]) {
+        xJ[d] += x[l - 1];
+      }
+    }
+
+    // Compute next state under (action j, inflow k1, outflow k2)
+    for (int d = 0; d < nOrigins; ++d) {
+      nextState[d] = std::max(
+          std::min(stateSupport[stateIdx[d]] + flowSupport[inflowIdx[d]] - xI[d],
+                   static_cast<double>(storageLimit)),
+          0.0);
+    }
+    for (int d = 0; d < nDestinations; ++d) {
+      nextState[nOrigins + d] =
+          storageLimit +
+          std::min(std::max(extendedStateSupport[stateIdx[nOrigins + d]] -
+                                flowSupport[outflowIdx[d]] + xJ[d],
+                            static_cast<double>(-storageLimit)),
+                   static_cast<double>(storageLimit));
+    }
+    const int nextStateIdx =
+        std::inner_product(nextState.begin(), nextState.end(), stateKeys.begin(), 0);
+
+    const double Q_j = -holdCost - cost_j + V_next[nextStateIdx];
+    if (Q_j > Qstar) {
+      Qstar     = Q_j;
+      j_star    = j;
+      cost_star = cost_j;
+      next_star = nextStateIdx;
+    }
+  }
+
+  return Rcpp::List::create(
+      Rcpp::Named("cost")           = cost_star,
+      Rcpp::Named("next_state_idx") = next_star,  // 0-based
+      Rcpp::Named("action_idx")     = j_star       // 0-based
+  );
+}
+
+// XPtr wrapper for simulateStepImpl.
+// state_idx and scenario_kdx are 1-based from R; converted to 0-based internally.
+//' @useDynLib TLPR
+//' @export
+// [[Rcpp::export]]
+Rcpp::List simulateStepPtr(SEXP problem_ptr, int t, int state_idx, int scenario_kdx,
+                           const std::vector<double>& stateSupport,
+                           const std::vector<double>& flowSupport,
+                           const std::vector<double>& alpha,
+                           const std::vector<double>& V_next) {
+  Rcpp::XPtr<ProblemData> pd(problem_ptr);
+  if (!pd) {
+    Rcpp::stop("problem_ptr is NULL or expired");
+  }
+  return simulateStepImpl(*pd, t, state_idx - 1, scenario_kdx - 1,
+                          stateSupport, flowSupport, alpha, V_next);
+}
+
 // Create a HiGHS model (replaces createGRBmodel)
 //' @useDynLib TLPR
 //' @export

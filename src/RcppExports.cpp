@@ -129,6 +129,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// simulateStepPtr
+Rcpp::List simulateStepPtr(SEXP problem_ptr, int t, int state_idx, int scenario_kdx, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& alpha, const std::vector<double>& V_next);
+RcppExport SEXP _TLPR_simulateStepPtr(SEXP problem_ptrSEXP, SEXP tSEXP, SEXP state_idxSEXP, SEXP scenario_kdxSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP alphaSEXP, SEXP V_nextSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type problem_ptr(problem_ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type t(tSEXP);
+    Rcpp::traits::input_parameter< int >::type state_idx(state_idxSEXP);
+    Rcpp::traits::input_parameter< int >::type scenario_kdx(scenario_kdxSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type V_next(V_nextSEXP);
+    rcpp_result_gen = Rcpp::wrap(simulateStepPtr(problem_ptr, t, state_idx, scenario_kdx, stateSupport, flowSupport, alpha, V_next));
+    return rcpp_result_gen;
+END_RCPP
+}
 // createHIGHSmodel
 SEXP createHIGHSmodel();
 RcppExport SEXP _TLPR_createHIGHSmodel() {
@@ -323,6 +341,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_computeEnvironmentPtr", (DL_FUNC) &_TLPR_computeEnvironmentPtr, 5},
     {"_TLPR_bellmanUpdateCx", (DL_FUNC) &_TLPR_bellmanUpdateCx, 11},
     {"_TLPR_bellmanUpdatePtr", (DL_FUNC) &_TLPR_bellmanUpdatePtr, 11},
+    {"_TLPR_simulateStepPtr", (DL_FUNC) &_TLPR_simulateStepPtr, 8},
     {"_TLPR_createHIGHSmodel", (DL_FUNC) &_TLPR_createHIGHSmodel, 0},
     {"_TLPR_createTransportVarsCx", (DL_FUNC) &_TLPR_createTransportVarsCx, 10},
     {"_TLPR_addCapacityConstraintsCx", (DL_FUNC) &_TLPR_addCapacityConstraintsCx, 10},

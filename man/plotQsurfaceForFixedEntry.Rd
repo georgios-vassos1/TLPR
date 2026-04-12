@@ -6,7 +6,7 @@
 \usage{
 plotQsurfaceForFixedEntry(
   env,
-  Qx,
+  Q,
   entry_state,
   t,
   theta = 66,
@@ -15,8 +15,6 @@ plotQsurfaceForFixedEntry(
 )
 }
 \arguments{
-\item{Qx}{Numeric matrix. The action value matrix to plot.}
-
 \item{entry_state}{Integer. The fixed entry state to use in the plot.}
 
 \item{t}{Integer. The time index for which the action value surface is plotted.}
@@ -24,6 +22,8 @@ plotQsurfaceForFixedEntry(
 \item{theta}{Numeric. The angle defining the viewing direction. Default is \code{66}.}
 
 \item{phi}{Numeric. The angle defining the viewing direction. Default is \code{30}.}
+
+\item{Qx}{Numeric matrix. The action value matrix to plot.}
 }
 \value{
 A 3D plot of the action value surface for the fixed entry state.

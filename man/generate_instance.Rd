@@ -11,11 +11,14 @@ generate_instance(
   nB = 5L,
   nCS = 10L,
   nCO = 1L,
-  rate = 4,
-  Q = list(vals = c(0L, 4L, 8L), prob = c(0.1, 0.7, 0.2)),
-  D = list(vals = c(0L, 4L, 8L), prob = c(0.1, 0.5, 0.4)),
-  W = list(vals = c(7, 22), prob = NULL),
+  rate = 1,
+  regime = c("balanced", "tight", "loose", "volatile"),
+  Q = NULL,
+  D = NULL,
+  W = NULL,
   alpha = NULL,
+  cap_factor = NULL,
+  seasonality = NULL,
   max.S = NULL,
   seed = NULL,
   path = NULL
@@ -34,32 +37,38 @@ generate_instance(
 
 \item{nCO}{Number of spot (outside option) carriers. Defaults to 1L.}
 
-\item{rate}{Capacity rate parameter. Defaults to 4.0.}
+\item{rate}{Storage-limit rate: \code{R = 10 * rate}. Defaults to 1.0.}
 
-\item{Q}{List with elements \code{vals} (integer vector of supply quantities)
-and \code{prob} (probability vector). Defaults to vals = c(0, 4, 8),
-prob = c(0.1, 0.7, 0.2).}
+\item{regime}{One of \code{"balanced"} (default), \code{"tight"},
+\code{"loose"}, or \code{"volatile"}. Sets default values for Q, D, W,
+alpha, cap_factor, and seasonality, all scaled to R.  Any of those
+arguments supplied explicitly will override the regime preset.}
 
-\item{D}{List with elements \code{vals} (integer vector of demand quantities)
-and \code{prob} (probability vector). Defaults to vals = c(0, 4, 8),
-prob = c(0.1, 0.5, 0.4).}
+\item{Q}{List with \code{vals} (supply support, scaled to R by default) and
+\code{prob}. \code{NULL} uses the regime preset.}
 
-\item{W}{List with elements \code{vals} (numeric vector of random cost shocks)
-and \code{prob} (probability vector or NULL). If \code{prob} is NULL,
-computed via \code{dnorm(vals, 18, 12)} normalised.}
+\item{D}{List with \code{vals} (demand support) and \code{prob}.
+\code{NULL} uses the regime preset.}
 
-\item{alpha}{Numeric vector of penalty weights. If NULL, defaults to
-\code{c(rep(5.0, nI), rep(c(4.0, 8.0), each = nJ))}.}
+\item{W}{List with \code{vals} (spot-rate support, actual cost units) and
+\code{prob} (uniform if \code{NULL}). \code{NULL} uses the regime preset.}
 
-\item{max.S}{Maximum storage level. If NULL, defaults to \code{env$R}
-(which is \code{10 * rate}).}
+\item{alpha}{Holding-cost penalty vector (length \code{nI + 2*nJ}).
+\code{NULL} uses the regime preset.}
 
-\item{seed}{If non-NULL, calls \code{set.seed(seed)} before any stochastic
-generation for reproducibility.}
+\item{cap_factor}{Multiplier on carrier capacity: \code{< 1} tightens,
+\code{> 1} loosens. \code{NULL} uses the regime preset.}
 
-\item{path}{If non-NULL, writes the instance as JSON to this path. If
-\code{TRUE}, writes to a default filename
-\code{instance{nI}x{nJ}_{tau}_001.json} in the current directory.}
+\item{seasonality}{Amplitude of the sinusoidal seasonal multiplier applied
+to spot rates (\code{CTo}) over time: \code{0} = no seasonality.
+\code{NULL} uses the regime preset.}
+
+\item{max.S}{Maximum storage level. \code{NULL} defaults to \code{R}.}
+
+\item{seed}{Integer seed for reproducibility.}
+
+\item{path}{If non-NULL, writes the instance as JSON.  \code{TRUE} uses a
+default filename \code{instance{nI}x{nJ}_{tau}_001.json}.}
 }
 \value{
 The populated environment (invisibly).
