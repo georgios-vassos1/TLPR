@@ -73,7 +73,6 @@ PKG_CXXFLAGS += -I/opt/homebrew/opt/nlohmann-json/include
 
 ```r
 library(TLPR)
-source("R/vfa.R"); source("R/dp_vfa.R"); source("R/rtdp.R")
 
 # 1. Generate a 2×2 instance (2 origins, 2 destinations, tau=4 periods)
 tmpf <- tempfile(fileext = ".json")
@@ -119,6 +118,7 @@ Run the numbered pipeline in order; each script caches its output for the next.
 | `demo/11_vfa_analysis.R` | Multi-seed, multi-regime VFA error analysis |
 | `demo/12_vfa_scaling.R` | VFA execution time vs instance size; 60-second frontier |
 | `demo/13_rtdp_benchmark.R` | RTDP Phase 1/2/3: quality, speedup, convergence, large-instance quality |
+| `demo/rerun_mc_figures.R` | Recompute Table 3, SAA/regret figures; `FIGURES_ONLY=1` to skip computation |
 | `demo/reproduce_paper.R` | End-to-end reproduction of all paper assertions |
 
 Shared instance configuration lives in `demo/config/instance1x1_4.R`.
@@ -233,4 +233,4 @@ Rscript -e "testthat::test_local('.')"
 - `begin_suppress_stdout` / `end_suppress_stdout` redirect fd 1 to `/dev/null` to silence the HiGHS banner. They return an `int` fd; `end_suppress_stdout(-1)` is a no-op.
 - `CartesianProductIntParallel` and `CartesianProductIntParallelxLB` use `std::thread` / `std::async` (not OpenMP); thread count is a direct parameter.
 - Instance JSON files must be written via `generate_instance(path = ...)` after any change to problem parameters — C++ functions read directly from the JSON at call time.
-- `vfa_fit()` and `vfa_eval()` are defined in `R/vfa.R` and must be sourced explicitly (`source("R/vfa.R")`); they are not exported via `NAMESPACE`.
+- `vfa_fit()`, `vfa_eval()`, `rolling_dp_vfa()`, `rolling_dp_rtdp()`, and `rolling_dp_rtdp_p2()` are all exported via `NAMESPACE` and available after `library(TLPR)`; no explicit `source()` is needed.
