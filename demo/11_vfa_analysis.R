@@ -14,8 +14,6 @@
 ## ============================================================
 
 suppressPackageStartupMessages(library(TLPR))
-source("R/vfa.R")
-source("R/dp_vfa.R")
 
 N_THREADS <- max(1L, parallel::detectCores() - 2L)
 SEEDS     <- c(1L, 42L, 99L)

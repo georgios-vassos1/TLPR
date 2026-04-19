@@ -10,8 +10,6 @@
 ## ============================================================
 
 suppressPackageStartupMessages(library(TLPR))
-source("R/vfa.R")
-source("R/dp_vfa.R")
 
 N_THREADS   <- max(1L, parallel::detectCores() - 2L)
 EXACT_TIMEOUT <- 60.0   # skip exact DP if prev run exceeded this
