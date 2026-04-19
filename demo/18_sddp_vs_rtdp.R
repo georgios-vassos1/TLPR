@@ -53,7 +53,7 @@ tlpr_env_to_mstp_inst <- function(e) {
     entry_store_coef = e$alpha[seq(e$nI)],
     exit_store_coef  = e$alpha[e$nI + seq(e$nJ)],
     exit_short_coef  = e$alpha[e$nI + e$nJ + seq(e$nJ)],
-    transport_coef   = unlist(e$CTb_list, use.names = FALSE),
+    transport_coef   = e$CTb,  # carrier-index order, matches move variable layout
     spot_coef        = as.vector(e$CTo),
     entry_stock_0    = rep(0L, e$nI),
     exit_stock_0     = rep(0L, e$nJ),
