@@ -28,6 +28,7 @@ INSTALL
 demo/*.rds
 demo/*.RData
 demo/*.log
+SDDP.log
 
 # Scratch / debug files
 archived/
