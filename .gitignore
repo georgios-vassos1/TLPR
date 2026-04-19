@@ -24,9 +24,10 @@ INSTALL
 .DS_Store
 **/.DS_Store
 
-# Demo caches (written to tempdir at runtime)
+# Demo caches and output logs (written at runtime)
 demo/*.rds
 demo/*.RData
+demo/*.log
 
 # Scratch / debug files
 archived/
