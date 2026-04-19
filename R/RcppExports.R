@@ -115,6 +115,22 @@ begin_suppress_stdout <- function() {
     .Call('_TLPR_begin_suppress_stdout', PACKAGE = 'TLPR')
 }
 
+#' Hilbert traversal order of the full state grid
+#'
+#' Returns a 1-indexed integer permutation: \code{hilbert_order(nI, nJ, R)[k]}
+#' is the lex index of the k-th state visited in Hilbert curve order.
+#' Use this to build coarsened subsets for the \code{stateSubset} argument
+#' of \code{bellmanUpdatePtr}.
+#'
+#' @param nI Number of origins.
+#' @param nJ Number of destinations.
+#' @param R  Storage limit.
+#' @return Integer vector of length nSdx = (R+1)^nI * (2R+1)^nJ, 1-indexed.
+#' @export
+hilbert_order <- function(nI, nJ, R) {
+    .Call('_TLPR_hilbert_order', PACKAGE = 'TLPR', nI, nJ, R)
+}
+
 #' @useDynLib TLPR
 #' @export
 end_suppress_stdout <- function(saved_fd) {

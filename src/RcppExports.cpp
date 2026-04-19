@@ -307,6 +307,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// hilbert_order
+std::vector<int> hilbert_order(int nI, int nJ, int R);
+RcppExport SEXP _TLPR_hilbert_order(SEXP nISEXP, SEXP nJSEXP, SEXP RSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type nI(nISEXP);
+    Rcpp::traits::input_parameter< int >::type nJ(nJSEXP);
+    Rcpp::traits::input_parameter< int >::type R(RSEXP);
+    rcpp_result_gen = Rcpp::wrap(hilbert_order(nI, nJ, R));
+    return rcpp_result_gen;
+END_RCPP
+}
 // end_suppress_stdout
 void end_suppress_stdout(int saved_fd);
 RcppExport SEXP _TLPR_end_suppress_stdout(SEXP saved_fdSEXP) {
@@ -353,6 +366,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 5},
     {"_TLPR_updateStateIdx", (DL_FUNC) &_TLPR_updateStateIdx, 12},
     {"_TLPR_begin_suppress_stdout", (DL_FUNC) &_TLPR_begin_suppress_stdout, 0},
+    {"_TLPR_hilbert_order", (DL_FUNC) &_TLPR_hilbert_order, 3},
     {"_TLPR_end_suppress_stdout", (DL_FUNC) &_TLPR_end_suppress_stdout, 1},
     {"_TLPR_rmvnorm", (DL_FUNC) &_TLPR_rmvnorm, 4},
     {NULL, NULL, 0}

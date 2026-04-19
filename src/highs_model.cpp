@@ -1673,6 +1673,67 @@ int begin_suppress_stdout() {
   return fd;
 }
 
+//' Hilbert traversal order of the full state grid
+//'
+//' Returns a 1-indexed integer permutation: \code{hilbert_order(nI, nJ, R)[k]}
+//' is the lex index of the k-th state visited in Hilbert curve order.
+//' Use this to build coarsened subsets for the \code{stateSubset} argument
+//' of \code{bellmanUpdatePtr}.
+//'
+//' @param nI Number of origins.
+//' @param nJ Number of destinations.
+//' @param R  Storage limit.
+//' @return Integer vector of length nSdx = (R+1)^nI * (2R+1)^nJ, 1-indexed.
+//' @export
+// [[Rcpp::export]]
+std::vector<int> hilbert_order(int nI, int nJ, int R) {
+  const int nSI = R + 1;
+  const int nSJ = 2 * R + 1;
+
+  // Build stateKeys (same formula as R get_adjustment_weights)
+  std::vector<int> stateKeys(nI + nJ);
+  stateKeys[0] = 1;
+  for (int k = 1; k <= nI; ++k)
+    stateKeys[k] = stateKeys[k - 1] * nSI;
+  for (int k = 1; k < nJ; ++k)
+    stateKeys[nI + k] = stateKeys[nI + k - 1] * nSJ;
+
+  std::vector<std::vector<int>> stateIndices =
+      CartesianProductIntSTL(stackStateIdxVectors(nSI, nI, nJ));
+  const int nSdx = static_cast<int>(stateIndices.size());
+
+  // Pair each state with its lex index before reordering
+  std::vector<std::pair<std::vector<int>, int>> indexed(nSdx);
+  for (int i = 0; i < nSdx; ++i) {
+    int lex = std::inner_product(stateIndices[i].begin(), stateIndices[i].end(),
+                                 stateKeys.begin(), 0);
+    indexed[i] = {stateIndices[i], lex};
+  }
+
+  const int b = hilbert::bitsFor(R);
+  std::sort(indexed.begin(), indexed.end(),
+            [&](const auto& a, const auto& bv) {
+              const uint64_t ha = hilbert::encode(a.first.data(), nI, b);
+              const uint64_t hb = hilbert::encode(bv.first.data(), nI, b);
+              if (ha != hb) return ha < hb;
+              std::vector<int> da, db;
+              da.reserve(2 * nJ);
+              db.reserve(2 * nJ);
+              for (int j = 0; j < nJ; ++j) {
+                auto [spa, sma] = utils::splitSignedIdx(a.first[nI + j], R);
+                auto [spb, smb] = utils::splitSignedIdx(bv.first[nI + j], R);
+                da.push_back(spa); da.push_back(sma);
+                db.push_back(spb); db.push_back(smb);
+              }
+              return hilbert::encode(da, b) < hilbert::encode(db, b);
+            });
+
+  std::vector<int> result(nSdx);
+  for (int k = 0; k < nSdx; ++k)
+    result[k] = indexed[k].second + 1;  // 1-indexed for R
+  return result;
+}
+
 //' @useDynLib TLPR
 //' @export
 // [[Rcpp::export]]
