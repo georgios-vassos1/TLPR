@@ -24,6 +24,8 @@ rolling_dp_ptr()             # exact backward induction via XPtr (C++/OpenMP)
 rolling_dp_vfa()             # separable VFA approximation (sampled states, 1-pass)
   — or —
 rolling_dp_rtdp_p2()         # RTDP Phase 2/3: trajectory-guided ADP (scales to |S|>50k)
+  — or —
+rolling_dp_rtdp_p2_heur()    # same as above but with Lagrangian Bellman backups (GPU-ready)
     ↓
 system_transition()          # simulate a policy on sampled scenario paths
     ↓
@@ -37,7 +39,7 @@ solve_lp()                   # solve with HiGHS
 |---|---|---|
 | Small | < 3k | `rolling_dp_ptr` (exact, fast) |
 | Medium | 3k – 50k | `rolling_dp_vfa` or `rolling_dp_rtdp_p2` |
-| Large | > 50k | `rolling_dp_rtdp_p2` (6× speedup at nSdx=53k, ~6% error) |
+| Large | > 50k | `rolling_dp_rtdp_p2` or `rolling_dp_rtdp_p2_heur` (< 0.4% cost gap, 1.3–1.5× CPU speedup) |
 
 ---
 
@@ -119,6 +121,8 @@ Run the numbered pipeline in order; each script caches its output for the next.
 | `demo/12_vfa_scaling.R` | VFA execution time vs instance size; 60-second frontier |
 | `demo/13_rtdp_benchmark.R` | RTDP Phase 1/2/3: quality, speedup, convergence, large-instance quality |
 | `demo/14_capacity_opt_multi.R` | Capacity optimisation across 2×1/1×2/2×2 topologies; §5.2.2 multi-topology table |
+| `demo/09_lagrangian_test.R` | Lagrangian heuristic vs HiGHS at LP level; canonical + 16 generated instances |
+| `demo/23_heuristic_rtdp_comparison.R` | Heuristic RTDP vs exact RTDP on 2×2 instances (nSdx=53k); cost gap and speedup |
 | `demo/rerun_mc_figures.R` | Recompute Table 3, SAA/regret figures; `FIGURES_ONLY=1` to skip computation |
 | `demo/reproduce_paper.R` | End-to-end reproduction of all paper assertions |
 
@@ -146,6 +150,8 @@ Shared instance configuration lives in `demo/config/instance1x1_4.R`.
 | `computeEnvironmentCx()` | C++/OpenMP transit table computation (all periods, parallel LP solves) |
 | `bellmanUpdatePtr()` | Single-period Bellman update (C++); accepts optional `stateSubset` for sampling |
 | `bellmanUpdateCx()` | Single-period Bellman update, JSON-file API |
+| `bellmanUpdateHeurPtr()` | Heuristic Bellman update via Lagrangian dual ascent; same signature as `bellmanUpdatePtr` |
+| `bellmanUpdateHeurCx()` | Heuristic Bellman update, JSON-file API |
 | `system_transition()` | Simulate a DP policy on sampled scenario paths |
 
 ### Approximate DP (ADP)
@@ -155,6 +161,7 @@ Shared instance configuration lives in `demo/config/instance1x1_4.R`.
 | `rolling_dp_vfa()` | Separable VFA: OLS-fit piecewise-linear approximation, optional K-state sampling |
 | `rolling_dp_rtdp()` | RTDP Phase 1: iterative K-state sampling with VFA cache/blend |
 | `rolling_dp_rtdp_p2()` | RTDP Phase 2/3: trajectory-guided ADP; LP cost O(n_traj × τ × n_A), independent of \|S\| |
+| `rolling_dp_rtdp_p2_heur()` | Heuristic RTDP Phase 2/3: identical to above but Bellman backups use Lagrangian dual ascent instead of HiGHS; GPU-batchable fixed-iteration arithmetic |
 | `simulateStepPtr()` | LP-accurate single-step forward simulation; returns greedy-optimal next state and action |
 | `vfa_fit()` | Fit separable VFA from (possibly sparse) cached value observations |
 | `vfa_eval()` | Evaluate separable VFA over all states |
@@ -198,6 +205,9 @@ Both implement identical Bellman aggregation. Prefer `rolling_dp_ptr` — it use
 
 **ADP scaling property (`rolling_dp_rtdp_p2`):**
 Each iteration runs `n_traj` forward trajectories via `simulateStepPtr`. LP cost is O(n_traj × τ × n_A) per iteration — independent of |S|. Only trajectory-visited states receive a Bellman update. Convergence is checked using the mean relative change in V_approx[1,] over a `patience`-iteration window; early stopping saves 40–70% of the iteration budget in practice.
+
+**Lagrangian heuristic Bellman backups (`rolling_dp_rtdp_p2_heur`):**
+Replaces HiGHS LP calls in Bellman backups with Lagrangian dual ascent + capacitated greedy recovery. Each LP call becomes a fixed-iteration arithmetic loop (no branch-on-solver-status), making it embarrassingly parallel across all state-action-scenario triples — the same batch structure as a GPU warp. On 2×2 instances (nSdx = 53k) validated on CPU: v_delta convergence curves match exact RTDP, out-of-sample cost gap < 0.4% on tight-regime instances, 1.3–1.5× CPU speedup (larger gains expected on GPU). Forward trajectories intentionally retain exact LP (`simulateStepPtr`) to keep visited-state distributions comparable.
 
 **Separable VFA:**
 `V(s) ≈ Σ_k v_k(s_k)` where each `v_k` is a piecewise-linear function of component `k` of the state, fitted by OLS from cached exact Bellman values. The VFA fills unvisited states in the blended `V_next = cache (priority) + VFA (fallback)`.
