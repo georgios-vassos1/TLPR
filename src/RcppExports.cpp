@@ -129,6 +129,46 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// bellmanUpdateHeurCx
+Rcpp::List bellmanUpdateHeurCx(const std::string& jsonFile, int t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads, int lagrIter, Rcpp::Nullable<Rcpp::IntegerVector> stateSubset);
+RcppExport SEXP _TLPR_bellmanUpdateHeurCx(SEXP jsonFileSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP, SEXP lagrIterSEXP, SEXP stateSubsetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type jsonFile(jsonFileSEXP);
+    Rcpp::traits::input_parameter< int >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type scnpb(scnpbSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type V_next(V_nextSEXP);
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    Rcpp::traits::input_parameter< int >::type lagrIter(lagrIterSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::IntegerVector> >::type stateSubset(stateSubsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(bellmanUpdateHeurCx(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, lagrIter, stateSubset));
+    return rcpp_result_gen;
+END_RCPP
+}
+// bellmanUpdateHeurPtr
+Rcpp::List bellmanUpdateHeurPtr(SEXP problem_ptr, int t, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& scnpb, const std::vector<double>& alpha, const std::vector<double>& V_next, int numThreads, int lagrIter, Rcpp::Nullable<Rcpp::IntegerVector> stateSubset);
+RcppExport SEXP _TLPR_bellmanUpdateHeurPtr(SEXP problem_ptrSEXP, SEXP tSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP scnpbSEXP, SEXP alphaSEXP, SEXP V_nextSEXP, SEXP numThreadsSEXP, SEXP lagrIterSEXP, SEXP stateSubsetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type problem_ptr(problem_ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type stateSupport(stateSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type flowSupport(flowSupportSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type scnpb(scnpbSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type V_next(V_nextSEXP);
+    Rcpp::traits::input_parameter< int >::type numThreads(numThreadsSEXP);
+    Rcpp::traits::input_parameter< int >::type lagrIter(lagrIterSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::IntegerVector> >::type stateSubset(stateSubsetSEXP);
+    rcpp_result_gen = Rcpp::wrap(bellmanUpdateHeurPtr(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, lagrIter, stateSubset));
+    return rcpp_result_gen;
+END_RCPP
+}
 // simulateStepPtr
 Rcpp::List simulateStepPtr(SEXP problem_ptr, int t, int state_idx, int scenario_kdx, const std::vector<double>& stateSupport, const std::vector<double>& flowSupport, const std::vector<double>& alpha, const std::vector<double>& V_next);
 RcppExport SEXP _TLPR_simulateStepPtr(SEXP problem_ptrSEXP, SEXP tSEXP, SEXP state_idxSEXP, SEXP scenario_kdxSEXP, SEXP stateSupportSEXP, SEXP flowSupportSEXP, SEXP alphaSEXP, SEXP V_nextSEXP) {
@@ -275,6 +315,37 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// solveLPHeuristicCx
+Rcpp::List solveLPHeuristicCx(const std::string& jsonFile, int t, const std::vector<double>& spotRates, const std::vector<int>& storage_limits, int volume, int nIter);
+RcppExport SEXP _TLPR_solveLPHeuristicCx(SEXP jsonFileSEXP, SEXP tSEXP, SEXP spotRatesSEXP, SEXP storage_limitsSEXP, SEXP volumeSEXP, SEXP nIterSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type jsonFile(jsonFileSEXP);
+    Rcpp::traits::input_parameter< int >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type spotRates(spotRatesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type storage_limits(storage_limitsSEXP);
+    Rcpp::traits::input_parameter< int >::type volume(volumeSEXP);
+    Rcpp::traits::input_parameter< int >::type nIter(nIterSEXP);
+    rcpp_result_gen = Rcpp::wrap(solveLPHeuristicCx(jsonFile, t, spotRates, storage_limits, volume, nIter));
+    return rcpp_result_gen;
+END_RCPP
+}
+// solveLPGreedyCx
+Rcpp::List solveLPGreedyCx(const std::string& jsonFile, int t, const std::vector<double>& spotRates, const std::vector<int>& storage_limits, int volume);
+RcppExport SEXP _TLPR_solveLPGreedyCx(SEXP jsonFileSEXP, SEXP tSEXP, SEXP spotRatesSEXP, SEXP storage_limitsSEXP, SEXP volumeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type jsonFile(jsonFileSEXP);
+    Rcpp::traits::input_parameter< int >::type t(tSEXP);
+    Rcpp::traits::input_parameter< const std::vector<double>& >::type spotRates(spotRatesSEXP);
+    Rcpp::traits::input_parameter< const std::vector<int>& >::type storage_limits(storage_limitsSEXP);
+    Rcpp::traits::input_parameter< int >::type volume(volumeSEXP);
+    rcpp_result_gen = Rcpp::wrap(solveLPGreedyCx(jsonFile, t, spotRates, storage_limits, volume));
+    return rcpp_result_gen;
+END_RCPP
+}
 // updateStateIdx
 std::vector<int> updateStateIdx(const std::vector<int>& stateIdx, const std::vector<int>& inflowIdx, const std::vector<std::vector<int>>& outflowIndices, const std::vector<double>& stateSupport, const std::vector<double>& extendedStateSupport, const std::vector<double>& flowSupport, const std::vector<double>& xI, const std::vector<double>& xJ, double storageLimit, const std::vector<int>& stateKeys, int nOrigins, int nDestinations);
 RcppExport SEXP _TLPR_updateStateIdx(SEXP stateIdxSEXP, SEXP inflowIdxSEXP, SEXP outflowIndicesSEXP, SEXP stateSupportSEXP, SEXP extendedStateSupportSEXP, SEXP flowSupportSEXP, SEXP xISEXP, SEXP xJSEXP, SEXP storageLimitSEXP, SEXP stateKeysSEXP, SEXP nOriginsSEXP, SEXP nDestinationsSEXP) {
@@ -354,6 +425,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_computeEnvironmentPtr", (DL_FUNC) &_TLPR_computeEnvironmentPtr, 5},
     {"_TLPR_bellmanUpdateCx", (DL_FUNC) &_TLPR_bellmanUpdateCx, 11},
     {"_TLPR_bellmanUpdatePtr", (DL_FUNC) &_TLPR_bellmanUpdatePtr, 11},
+    {"_TLPR_bellmanUpdateHeurCx", (DL_FUNC) &_TLPR_bellmanUpdateHeurCx, 10},
+    {"_TLPR_bellmanUpdateHeurPtr", (DL_FUNC) &_TLPR_bellmanUpdateHeurPtr, 10},
     {"_TLPR_simulateStepPtr", (DL_FUNC) &_TLPR_simulateStepPtr, 8},
     {"_TLPR_createHIGHSmodel", (DL_FUNC) &_TLPR_createHIGHSmodel, 0},
     {"_TLPR_createTransportVarsCx", (DL_FUNC) &_TLPR_createTransportVarsCx, 10},
@@ -364,6 +437,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_TLPR_printConstraintsCx", (DL_FUNC) &_TLPR_printConstraintsCx, 1},
     {"_TLPR_solveModelCx", (DL_FUNC) &_TLPR_solveModelCx, 2},
     {"_TLPR_optimizeModelFromJSON", (DL_FUNC) &_TLPR_optimizeModelFromJSON, 5},
+    {"_TLPR_solveLPHeuristicCx", (DL_FUNC) &_TLPR_solveLPHeuristicCx, 6},
+    {"_TLPR_solveLPGreedyCx", (DL_FUNC) &_TLPR_solveLPGreedyCx, 5},
     {"_TLPR_updateStateIdx", (DL_FUNC) &_TLPR_updateStateIdx, 12},
     {"_TLPR_begin_suppress_stdout", (DL_FUNC) &_TLPR_begin_suppress_stdout, 0},
     {"_TLPR_hilbert_order", (DL_FUNC) &_TLPR_hilbert_order, 3},

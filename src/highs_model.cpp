@@ -654,6 +654,316 @@ Eigen::MatrixXd computeEnvironmentPtr(SEXP problem_ptr, int t,
   return computeEnvironmentImpl(*pd, t, stateSupport, flowSupport, numThreads);
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+//  Lagrangian heuristic LP solver
+//
+//  Each call to bellmanUpdateImpl solves nSdx × nAdx × nQdx × nWdx small
+//  packing LPs that all share the same {0,1} constraint matrix structure:
+//
+//    min  c^T x
+//    s.t. sum_{k in carrier(c)} x_k  <= cap_carrier[c]   (nCS + nCO rows)
+//         sum_{k: origin(k)=i}  x_k  <= cap_origin[i]    (nI rows)
+//         sum_{k: dest(k)=j}    x_k  <= cap_dest[j]      (nJ rows)
+//         sum_k x_k = vol                                 (1 equality)
+//         x >= 0
+//
+//  We exploit the {0,1} structure via Lagrangian dual ascent:
+//  relax all inequality constraints (keeping the volume equality explicitly),
+//  then recover a feasible primal via capacitated greedy.
+//
+//  GPU mapping (for future CUDA port):
+//    batch dim = nSdx × nAdx × nQdx × nWdx  (independent LP instances)
+//    within-instance dim = n = nL_ + nCO*nL  (<= ~20 variables)
+//    → assign one warp (32 threads) per LP; T-iteration loop in registers.
+// ─────────────────────────────────────────────────────────────────────────
+
+// Per-instance LP incidence data — extracted once per (instance, t, spotRates).
+struct LPIncidence {
+  int n{};
+  std::vector<double> costs;     // original cost c[k]
+  std::vector<int> carrierOf;    // capacity-row index for variable k (0-based)
+  std::vector<int> originOf;     // origin index for variable k (0-based)
+  std::vector<int> destOf;       // dest index for variable k (0-based)
+};
+
+// Build cost vector and {0,1} incidence mapping from ProblemData.
+// spotRates must be flat, length nCO * nL, carrier-major order.
+[[nodiscard]] static LPIncidence buildLPIncidence(const ProblemData& pd, int t,
+                                                   const std::vector<double>& spotRates) {
+  const int n = pd.nL_ + pd.nCO * pd.nL;
+  LPIncidence lp;
+  lp.n = n;
+  lp.costs.resize(n);
+  lp.carrierOf.resize(n);
+  lp.originOf.resize(n);
+  lp.destOf.resize(n);
+  (void)t;  // t not used here; caller passes period-correct spotRates
+
+  int k = 0;
+
+  // Strategic variables — same traversal order as createTransportVars /
+  // addCapacityConstraints, so capacity row ks == position in winnerKeys.
+  for (int ks = 0; ks < static_cast<int>(pd.winnerKeys.size()); ++ks) {
+    const auto& wk = pd.winnerKeys[ks];
+    int local_k = 0;
+    for (int bidIndex : pd.winners.at(wk)) {
+      const auto& bid = pd.bids[bidIndex - 1];   // bidIndex is 1-based
+      for (int laneIndex : bid) {
+        lp.costs[k]     = pd.CTb.at(wk)[local_k++];
+        lp.carrierOf[k] = ks;
+        const auto& lane = pd.lanes[laneIndex - 1]; // laneIndex is 1-based
+        lp.originOf[k]  = lane[0] - 1;              // lane entries are 1-based
+        lp.destOf[k]    = lane[1] - 1;
+        ++k;
+      }
+    }
+  }
+
+  // Spot variables — flat index nL_ + ko*nL + l; capacity rows follow strategic.
+  for (int ko = 0; ko < pd.nCO; ++ko) {
+    for (int l = 0; l < pd.nL; ++l) {
+      lp.costs[k]     = spotRates[ko * pd.nL + l];
+      lp.carrierOf[k] = pd.nCS + ko;
+      const auto& lane = pd.lanes[l];   // spot: lane list is 0-based
+      lp.originOf[k]  = lane[0] - 1;   // entries still 1-based
+      lp.destOf[k]    = lane[1] - 1;
+      ++k;
+    }
+  }
+
+  return lp;
+}
+
+// Capacitated greedy primal using pricing vector r (e.g. original or modified
+// costs). Writes the primal into x_out. Returns (objval_at_original_costs,
+// feasible). x_out must already be sized n.
+static std::pair<double, bool>
+greedyPrimal(const LPIncidence& lp, const std::vector<double>& r,
+             const std::vector<double>& cap_carrier,
+             const std::vector<double>& cap_origin,
+             const std::vector<double>& cap_dest,
+             double vol, std::vector<double>& x_out) {
+
+  const int n  = lp.n;
+  const int nC = static_cast<int>(cap_carrier.size());
+  const int nI = static_cast<int>(cap_origin.size());
+  const int nJ = static_cast<int>(cap_dest.size());
+
+  std::vector<int> order(n);
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [&](int a, int b) { return r[a] < r[b]; });
+
+  std::vector<double> used_c(nC, 0.0);
+  std::vector<double> used_i(nI, 0.0);
+  std::vector<double> used_j(nJ, 0.0);
+
+  std::fill(x_out.begin(), x_out.end(), 0.0);
+  double remaining = vol;
+
+  for (int k : order) {
+    if (remaining <= 1e-9) { break; }
+    double avail = std::min({cap_carrier[lp.carrierOf[k]] - used_c[lp.carrierOf[k]],
+                             cap_origin[lp.originOf[k]]   - used_i[lp.originOf[k]],
+                             cap_dest[lp.destOf[k]]       - used_j[lp.destOf[k]],
+                             remaining});
+    if (avail > 1e-9) {
+      x_out[k] = avail;
+      used_c[lp.carrierOf[k]] += avail;
+      used_i[lp.originOf[k]]  += avail;
+      used_j[lp.destOf[k]]    += avail;
+      remaining -= avail;
+    }
+  }
+
+  const double tol = 1e-6 * (vol + 1.0);
+  bool feasible = (remaining <= tol);
+  double objval = 0.0;
+  for (int k = 0; k < n; ++k) { objval += lp.costs[k] * x_out[k]; }
+  return {objval, feasible};
+}
+
+// Plain-C++ result struct — safe to use inside OMP regions (no Rcpp objects).
+struct LagrangianResult {
+  double objval   = 0.0;
+  std::vector<double> x;
+  bool   feasible = false;
+  double dual_gap = 1e30;
+  int    n_iter   = 0;
+};
+
+// Lagrangian dual ascent + greedy primal recovery — core C++ logic.
+// Called both from the Rcpp export and (safely) from inside OMP regions.
+[[nodiscard]] static LagrangianResult
+solveLagrangianLPImpl(const LPIncidence& lp,
+                      const std::vector<double>& cap_carrier,
+                      const std::vector<double>& cap_origin,
+                      const std::vector<double>& cap_dest,
+                      double vol, int T) {
+
+  const int n  = lp.n;
+  const int nC = static_cast<int>(cap_carrier.size());
+  const int nI = static_cast<int>(cap_origin.size());
+  const int nJ = static_cast<int>(cap_dest.size());
+
+  if (vol <= 1e-9) {
+    LagrangianResult zero;
+    zero.objval   = 0.0;
+    zero.x        = std::vector<double>(n, 0.0);
+    zero.feasible = true;
+    zero.dual_gap = 0.0;
+    zero.n_iter   = 0;
+    return zero;
+  }
+
+  // Dual multipliers for relaxed inequality constraints (λ ≥ 0, μ ≥ 0, ν ≥ 0).
+  std::vector<double> lambda(nC, 0.0);
+  std::vector<double> mu(nI, 0.0);
+  std::vector<double> nu(nJ, 0.0);
+
+  std::vector<double> r(n);
+  std::vector<double> x(n, 0.0);
+
+  // best_primal: lowest original-cost feasible objective found (primal UB for Polyak step).
+  // best_dual:   highest Lagrangian lower bound found.
+  // best_lambda/mu/nu: dual solution achieving best_dual — used for final greedy pricing.
+  double best_primal = 1e30;
+  double best_dual   = -1e30;
+  std::vector<double> best_lambda(nC, 0.0);
+  std::vector<double> best_mu(nI, 0.0);
+  std::vector<double> best_nu(nJ, 0.0);
+
+  int final_iter = T;
+
+  for (int iter = 0; iter < T; ++iter) {
+    // Modified costs: r[k] = c[k] + λ[carrier(k)] + μ[origin(k)] + ν[dest(k)]
+    for (int k = 0; k < n; ++k) {
+      r[k] = lp.costs[k] + lambda[lp.carrierOf[k]] + mu[lp.originOf[k]] + nu[lp.destOf[k]];
+    }
+
+    // Primal step: greedy with current modified costs (tracks best primal UB for Polyak).
+    auto [pval, pfeas] = greedyPrimal(lp, r, cap_carrier, cap_origin, cap_dest, vol, x);
+    if (pfeas && pval < best_primal) {
+      best_primal = pval;
+    }
+
+    // Dual value: min of Lagrangian over {x ≥ 0, Σx = vol}
+    // = min_k r[k] · vol − λ^T cap_c − μ^T cap_o − ν^T cap_d
+    const int k_star = static_cast<int>(std::min_element(r.begin(), r.end()) - r.begin());
+    double dual_val  = r[k_star] * vol;
+    for (int c = 0; c < nC; ++c) { dual_val -= lambda[c] * cap_carrier[c]; }
+    for (int i = 0; i < nI; ++i) { dual_val -= mu[i]     * cap_origin[i]; }
+    for (int j = 0; j < nJ; ++j) { dual_val -= nu[j]     * cap_dest[j]; }
+    // Record the dual solution achieving the highest lower bound: this pricing best
+    // separates feasible from infeasible allocations and drives the final greedy.
+    if (dual_val > best_dual) {
+      best_dual   = dual_val;
+      best_lambda = lambda;
+      best_mu     = mu;
+      best_nu     = nu;
+    }
+
+    // Subgradients of the dual function d(λ,μ,ν) at (λ,μ,ν):
+    // The Lagrangian optimal x* concentrates all volume on k_star (cheapest variable
+    // given modified costs), so g = A x* - b.  Using the greedy feasible x instead
+    // gives g ≤ 0 everywhere (capacity constraints are met), which would prevent the
+    // multipliers from ever growing above zero.
+    std::vector<double> g_lambda(nC, 0.0);
+    std::vector<double> g_mu(nI, 0.0);
+    std::vector<double> g_nu(nJ, 0.0);
+    g_lambda[lp.carrierOf[k_star]] = vol;
+    g_mu[lp.originOf[k_star]]      = vol;
+    g_nu[lp.destOf[k_star]]        = vol;
+    for (int c = 0; c < nC; ++c) { g_lambda[c] -= cap_carrier[c]; }
+    for (int i = 0; i < nI; ++i) { g_mu[i]     -= cap_origin[i]; }
+    for (int j = 0; j < nJ; ++j) { g_nu[j]     -= cap_dest[j]; }
+
+    double g_sq = 0.0;
+    for (double v : g_lambda) { g_sq += v * v; }
+    for (double v : g_mu)     { g_sq += v * v; }
+    for (double v : g_nu)     { g_sq += v * v; }
+
+    if (g_sq < 1e-12) { final_iter = iter + 1; break; }
+
+    // Polyak step: step = (UB − dual_val) / ‖g‖²
+    // Clamp denominator with a safety net for the first few iterations when UB
+    // might not yet be available.
+    double step = 0.0;
+    if (best_primal < 1e29) {
+      step = (best_primal - dual_val) / g_sq;
+      // Safety: cap at 10·vol/‖g‖ to prevent explosion in early iterations.
+      step = std::min(step, 10.0 * vol / std::sqrt(g_sq));
+    } else {
+      step = vol / std::sqrt(static_cast<double>(iter + 1) * g_sq);
+    }
+
+    for (int c = 0; c < nC; ++c) { lambda[c] = std::max(0.0, lambda[c] + step * g_lambda[c]); }
+    for (int i = 0; i < nI; ++i) { mu[i]     = std::max(0.0, mu[i]     + step * g_mu[i]); }
+    for (int j = 0; j < nJ; ++j) { nu[j]     = std::max(0.0, nu[j]     + step * g_nu[j]); }
+
+    // Early stop: relative duality gap is negligible.
+    if (best_primal < 1e29 &&
+        (best_primal - best_dual) < 1e-6 * (std::abs(best_primal) + 1.0)) {
+      final_iter = iter + 1;
+      break;
+    }
+  }
+
+  // Final primal recovery: run greedy with best-dual modified costs, then also with
+  // original costs; keep whichever feasible solution has the lower original-cost objective.
+  // This prevents the Lagrangian from being worse than pure greedy when dual ascent
+  // over-steers (e.g. fails to converge within T iterations).
+  std::vector<double> r_final(n);
+  for (int k = 0; k < n; ++k) {
+    r_final[k] = lp.costs[k] + best_lambda[lp.carrierOf[k]]
+                              + best_mu[lp.originOf[k]]
+                              + best_nu[lp.destOf[k]];
+  }
+  auto [lagr_val, lagr_feas] = greedyPrimal(lp, r_final,    cap_carrier, cap_origin, cap_dest, vol, x);
+
+  std::vector<double> x_orig(n, 0.0);
+  auto [orig_val, orig_feas] = greedyPrimal(lp, lp.costs, cap_carrier, cap_origin, cap_dest, vol, x_orig);
+
+  // Prefer Lagrangian solution; fall back to original-cost greedy if it's better or if
+  // the Lagrangian greedy is infeasible.
+  if (orig_feas && (!lagr_feas || orig_val < lagr_val)) {
+    x = x_orig;
+  }
+
+  double remaining = vol;
+  for (int k = 0; k < n; ++k) { remaining -= x[k]; }
+  const bool feasible = (std::abs(remaining) < 1e-6 * (vol + 1.0));
+
+  double objval = 0.0;
+  for (int k = 0; k < n; ++k) { objval += lp.costs[k] * x[k]; }
+  const double dual_gap = feasible ? (objval - best_dual) : 1e30;
+
+  LagrangianResult res;
+  res.objval   = objval;
+  res.x        = std::move(x);
+  res.feasible = feasible;
+  res.dual_gap = dual_gap;
+  res.n_iter   = final_iter;
+  return res;
+}
+
+// Rcpp-facing wrapper: calls solveLagrangianLPImpl and converts to List.
+[[nodiscard]] static Rcpp::List
+solveLagrangianLP(const LPIncidence& lp,
+                  const std::vector<double>& cap_carrier,
+                  const std::vector<double>& cap_origin,
+                  const std::vector<double>& cap_dest,
+                  double vol, int T) {
+  auto res = solveLagrangianLPImpl(lp, cap_carrier, cap_origin, cap_dest, vol, T);
+  Rcpp::NumericVector x_r(res.x.begin(), res.x.end());
+  return Rcpp::List::create(
+    Rcpp::_["objval"]    = res.objval,
+    Rcpp::_["x"]        = x_r,
+    Rcpp::_["feasible"] = res.feasible,
+    Rcpp::_["dual_gap"] = res.dual_gap,
+    Rcpp::_["n_iter"]   = res.n_iter
+  );
+}
+
 // Canonical implementation — takes a resolved ProblemData reference.
 // Called by both the JSON wrapper and the XPtr wrapper below.
 [[nodiscard]] static Rcpp::List
@@ -661,7 +971,8 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
                   const std::vector<double>& flowSupport, const std::vector<double>& scnpb,
                   const std::vector<double>& alpha, const std::vector<double>& V_next,
                   int numThreads, StateOrder order = StateOrder::Lexicographic, int chunkSize = 32,
-                  const std::vector<int>& stateSubset = {}) {
+                  const std::vector<int>& stateSubset = {},
+                  bool useHeuristic = false, int lagrIter = 50) {
 
   const int nInventoryLevels = pd.R + 1;
   const int nFlowLevels = pd.nQ;
@@ -782,6 +1093,22 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
     baseRhs[nStrategicCarriers + idx] = Co[t][idx];
   }
 
+  // Heuristic path: precompute period-fixed LPIncidence and carrier capacities
+  // once before the OMP region (thread-safe; OMP threads copy lp_heur_base).
+  LPIncidence lp_heur_base;
+  std::vector<double> cap_carrier_heur;
+  if (useHeuristic) {
+    lp_heur_base = buildLPIncidence(pd, t, spotRates[t]);
+    cap_carrier_heur.resize(nStrategicCarriers + nSpotCarriers);
+    for (int ks = 0; ks < nStrategicCarriers; ++ks) {
+      cap_carrier_heur[ks] =
+          static_cast<double>(Cb[t][carrierIdx.at(winnerKeys[ks]) - 1]);
+    }
+    for (int ko = 0; ko < nSpotCarriers; ++ko) {
+      cap_carrier_heur[nStrategicCarriers + ko] = static_cast<double>(Co[t][ko]);
+    }
+  }
+
   // Per-(i,j) accumulators — sized to the full grid so that lexPos[i] (which
   // maps to the canonical full-grid position) is always a valid index.
   std::vector<double> sumW(nSdxFull * nAdx, 0.0);
@@ -811,6 +1138,12 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
     HighsBasis lastBasis;
     bool hasBasis = false;
 
+    // Heuristic-path thread-local state: per-thread copy of LPIncidence
+    // (spot costs updated per scenario) + per-state/inflow capacity vectors.
+    LPIncidence lp_thread = useHeuristic ? lp_heur_base : LPIncidence{};
+    std::vector<double> cap_origin_heur(nOrigins, 0.0);
+    std::vector<double> cap_dest_heur(nDestinations, 0.0);
+
     const int volumeRow = nStrategicCarriers + nSpotCarriers + nOrigins + nDestinations;
     const int ompChunk = (order == StateOrder::Hilbert) ? chunkSize : 1;
 
@@ -829,6 +1162,9 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
           int p = nStrategicCarriers + nSpotCarriers + nOrigins + idx;
           rhs[p] = storageLimit - extendedStateSupport[stateIdx[nOrigins + idx]];
           threadHighs.changeRowBounds(p, -kHighsInf, rhs[p]);
+          if (useHeuristic) {
+            cap_dest_heur[idx] = rhs[p];
+          }
         }
 
         for (int j = 0; j < nAdx; ++j) {
@@ -841,6 +1177,9 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
               int p = nStrategicCarriers + nSpotCarriers + k1dx;
               rhs[p] = stateSupport[stateIdx[k1dx]] + flowSupport[inflowIdx[k1dx]];
               threadHighs.changeRowBounds(p, -kHighsInf, rhs[p]);
+              if (useHeuristic) {
+                cap_origin_heur[k1dx] = rhs[p];
+              }
             }
 
             std::fill(fdx.begin(), fdx.end(), 0);
@@ -855,23 +1194,50 @@ bellmanUpdateImpl(const ProblemData& pd, int t, const std::vector<double>& state
                   spotRatesTmp[k3dx * nLanes + ldx] = spotRateSupport[spotRateIdx[k3dx]];
                 }
               }
-              updateSpotRates(threadHighs, colIdx, spotRatesTmp, nServices, nSpotCarriers, nLanes);
 
-              if (hasBasis) {
-                threadHighs.setBasis(lastBasis);
-              }
-              threadHighs.run();
+              // ── LP solve: HiGHS (exact) or Lagrangian heuristic ─────────
+              bool lp_optimal = false;
+              double objval = 0.0;
 
-              if (threadHighs.getModelStatus() == HighsModelStatus::kOptimal) {
-                lastBasis = threadHighs.getBasis();
-                hasBasis = true;
-                double objval = threadHighs.getObjectiveValue();
-                const auto& sol = threadHighs.getSolution();
-
-                for (int k1dx = 0; k1dx < n; ++k1dx) {
-                  x[k1dx] = sol.col_value[colIdx[k1dx]];
+              if (useHeuristic) {
+                // Update spot costs in thread-local LPIncidence for this scenario.
+                for (int k3dx = 0; k3dx < nSpotCarriers; ++k3dx) {
+                  for (int ldx = 0; ldx < nLanes; ++ldx) {
+                    lp_thread.costs[nServices + k3dx * nLanes + ldx] =
+                        spotRatesTmp[k3dx * nLanes + ldx];
+                  }
                 }
+                LagrangianResult res = solveLagrangianLPImpl(
+                    lp_thread, cap_carrier_heur, cap_origin_heur, cap_dest_heur,
+                    static_cast<double>(j), lagrIter);
+                lp_optimal = res.feasible;
+                if (res.feasible) {
+                  objval = res.objval;
+                  for (int k1dx = 0; k1dx < n; ++k1dx) {
+                    x[k1dx] = res.x[k1dx];
+                  }
+                }
+              } else {
+                updateSpotRates(threadHighs, colIdx, spotRatesTmp, nServices, nSpotCarriers,
+                                nLanes);
+                if (hasBasis) {
+                  threadHighs.setBasis(lastBasis);
+                }
+                threadHighs.run();
+                lp_optimal = (threadHighs.getModelStatus() == HighsModelStatus::kOptimal);
+                if (lp_optimal) {
+                  lastBasis = threadHighs.getBasis();
+                  hasBasis  = true;
+                  objval    = threadHighs.getObjectiveValue();
+                  const auto& sol = threadHighs.getSolution();
+                  for (int k1dx = 0; k1dx < n; ++k1dx) {
+                    x[k1dx] = sol.col_value[colIdx[k1dx]];
+                  }
+                }
+              }
+              // ── accumulate if feasible ───────────────────────────────────
 
+              if (lp_optimal) {
                 std::fill(xI.begin(), xI.end(), 0.0);
                 for (int k1dx = 0; k1dx < nOrigins; ++k1dx) {
                   for (const auto& ldx : fromOrigin[k1dx]) {
@@ -1057,6 +1423,53 @@ Rcpp::List bellmanUpdatePtr(SEXP problem_ptr, int t, const std::vector<double>& 
   }
   return bellmanUpdateImpl(*pd, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads,
                            order, chunkSize, subset);
+}
+
+// Heuristic variants — same signatures but pass useHeuristic=true to the impl.
+//' @useDynLib TLPR
+//' @export
+// [[Rcpp::export]]
+Rcpp::List bellmanUpdateHeurCx(const std::string& jsonFile, int t,
+                                const std::vector<double>& stateSupport,
+                                const std::vector<double>& flowSupport,
+                                const std::vector<double>& scnpb,
+                                const std::vector<double>& alpha,
+                                const std::vector<double>& V_next,
+                                int numThreads = 8, int lagrIter = 50,
+                                Rcpp::Nullable<Rcpp::IntegerVector> stateSubset = R_NilValue) {
+  std::vector<int> subset;
+  if (stateSubset.isNotNull()) {
+    Rcpp::IntegerVector sv(stateSubset);
+    subset.resize(sv.size());
+    std::transform(sv.begin(), sv.end(), subset.begin(), [](int x) { return x - 1; });
+  }
+  return bellmanUpdateImpl(parseProblemData(jsonFile), t, stateSupport, flowSupport, scnpb, alpha,
+                           V_next, numThreads, StateOrder::Lexicographic, 32, subset, true, lagrIter);
+}
+
+//' @useDynLib TLPR
+//' @export
+// [[Rcpp::export]]
+Rcpp::List bellmanUpdateHeurPtr(SEXP problem_ptr, int t,
+                                 const std::vector<double>& stateSupport,
+                                 const std::vector<double>& flowSupport,
+                                 const std::vector<double>& scnpb,
+                                 const std::vector<double>& alpha,
+                                 const std::vector<double>& V_next,
+                                 int numThreads = 8, int lagrIter = 50,
+                                 Rcpp::Nullable<Rcpp::IntegerVector> stateSubset = R_NilValue) {
+  Rcpp::XPtr<ProblemData> pd(problem_ptr);
+  if (!pd) {
+    Rcpp::stop("problem_ptr is NULL or expired");
+  }
+  std::vector<int> subset;
+  if (stateSubset.isNotNull()) {
+    Rcpp::IntegerVector sv(stateSubset);
+    subset.resize(sv.size());
+    std::transform(sv.begin(), sv.end(), subset.begin(), [](int x) { return x - 1; });
+  }
+  return bellmanUpdateImpl(*pd, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads,
+                           StateOrder::Lexicographic, 32, subset, true, lagrIter);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1579,6 +1992,82 @@ Rcpp::List optimizeModelFromJSON(const std::string& jsonFile, int t,
   return Rcpp::List::create(Rcpp::_["objval"] = objval,
                             Rcpp::_["x"]      = x,
                             Rcpp::_["status"] = status);
+}
+
+// Helper: assemble carrier / origin / dest capacity vectors from ProblemData.
+static void buildCapacities(const ProblemData& pd, int t,
+                             const std::vector<int>& storage_limits,
+                             std::vector<double>& cap_carrier,
+                             std::vector<double>& cap_origin,
+                             std::vector<double>& cap_dest) {
+  cap_carrier.resize(pd.nCS + pd.nCO);
+  // Strategic carriers: capacity row ks maps to winnerKeys[ks].
+  // pd.Cb[t] is indexed by the 0-based carrier index stored in carrierIdx.
+  for (int ks = 0; ks < pd.nCS; ++ks) {
+    cap_carrier[ks] = static_cast<double>(pd.Cb[t][pd.carrierIdx.at(pd.winnerKeys[ks]) - 1]);
+  }
+  for (int ko = 0; ko < pd.nCO; ++ko) {
+    cap_carrier[pd.nCS + ko] = static_cast<double>(pd.Co[t][ko]);
+  }
+
+  cap_origin.resize(pd.nI);
+  cap_dest.resize(pd.nJ);
+  for (int i = 0; i < pd.nI; ++i) { cap_origin[i] = static_cast<double>(storage_limits[i]); }
+  for (int j = 0; j < pd.nJ; ++j) { cap_dest[j]   = static_cast<double>(storage_limits[pd.nI + j]); }
+}
+
+// Exported: Lagrangian heuristic — same interface as optimizeModelFromJSON.
+//' @useDynLib TLPR
+//' @export
+// [[Rcpp::export]]
+Rcpp::List solveLPHeuristicCx(const std::string& jsonFile, int t,
+                               const std::vector<double>& spotRates,
+                               const std::vector<int>& storage_limits,
+                               int volume, int nIter = 50) {
+  const ProblemData pd = parseProblemData(jsonFile);
+
+  LPIncidence lp = buildLPIncidence(pd, t, spotRates);
+
+  std::vector<double> cap_carrier;
+  std::vector<double> cap_origin;
+  std::vector<double> cap_dest;
+  buildCapacities(pd, t, storage_limits, cap_carrier, cap_origin, cap_dest);
+
+  return solveLagrangianLP(lp, cap_carrier, cap_origin, cap_dest,
+                           static_cast<double>(volume), nIter);
+}
+
+// Exported: pure greedy baseline (no dual ascent) — same interface.
+// Useful as a lower bound on the improvement that Lagrangian dual ascent adds.
+//' @useDynLib TLPR
+//' @export
+// [[Rcpp::export]]
+Rcpp::List solveLPGreedyCx(const std::string& jsonFile, int t,
+                            const std::vector<double>& spotRates,
+                            const std::vector<int>& storage_limits,
+                            int volume) {
+  const ProblemData pd = parseProblemData(jsonFile);
+
+  LPIncidence lp = buildLPIncidence(pd, t, spotRates);
+
+  std::vector<double> cap_carrier;
+  std::vector<double> cap_origin;
+  std::vector<double> cap_dest;
+  buildCapacities(pd, t, storage_limits, cap_carrier, cap_origin, cap_dest);
+
+  std::vector<double> x(lp.n, 0.0);
+  const std::pair<double, bool> greedy_result =
+      greedyPrimal(lp, lp.costs, cap_carrier, cap_origin, cap_dest,
+                   static_cast<double>(volume), x);
+  const double objval  = greedy_result.first;
+  const bool feasible  = greedy_result.second;
+
+  Rcpp::NumericVector x_r(x.begin(), x.end());
+  return Rcpp::List::create(
+    Rcpp::_["objval"]    = objval,
+    Rcpp::_["x"]        = x_r,
+    Rcpp::_["feasible"] = feasible
+  );
 }
 
 // Function to update the state index

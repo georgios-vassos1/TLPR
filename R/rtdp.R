@@ -377,3 +377,165 @@ rolling_dp_rtdp_p2 <- function(env, jsonFile,
     n_visited      = do.call(rbind, n_visited_list)
   )
 }
+
+#' Heuristic RTDP (Phase 2) — Lagrangian Bellman Backups
+#'
+#' Identical to \code{rolling_dp_rtdp_p2} but replaces HiGHS LP Bellman backups
+#' with the Lagrangian dual-ascent heuristic (\code{bellmanUpdateHeurPtr}).
+#' Forward trajectories still use exact LP via \code{simulateStepPtr} so that
+#' visited state distributions are comparable across the two methods.
+#'
+#' @param env Environment produced by \code{dp_config}.
+#' @param jsonFile Path to the instance JSON file.
+#' @param n_iter Maximum iterations.  Default 10.
+#' @param n_traj Forward trajectories per iteration.  Default 50.
+#' @param s0 Initial state index (1-based).  \code{NULL} = random start.
+#' @param epsilon ε-greedy exploration rate.  Default \code{0.2}.
+#' @param tol Convergence tolerance.  Default \code{1e-2}.
+#' @param min_iter Minimum iterations before early stopping.  Default \code{3L}.
+#' @param patience Consecutive stable iterations required.  Default \code{3L}.
+#' @param numThreads OMP threads.  Default 8.
+#' @param lagrIter Lagrangian dual-ascent iterations per LP call.  Default 50.
+#' @param seed Integer seed.  Default \code{NULL}.
+#' @return Same structure as \code{rolling_dp_rtdp_p2}.
+#' @export
+rolling_dp_rtdp_p2_heur <- function(env, jsonFile,
+                                     n_iter     = 10L,
+                                     n_traj     = 50L,
+                                     s0         = NULL,
+                                     epsilon    = 0.2,
+                                     tol        = 1e-2,
+                                     min_iter   = 3L,
+                                     patience   = 3L,
+                                     numThreads = 8L,
+                                     lagrIter   = 50L,
+                                     seed       = NULL) {
+
+  if (!is.null(seed)) set.seed(seed)
+
+  prob <- loadProblemDataCx(jsonFile)
+
+  V_term <- -c(
+    cbind(
+      apply(env$Sdx[, env$I_,          drop = FALSE], 2L,
+            function(sdx) env$stateSupport[sdx]),
+      apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L,
+            function(sdx) pmax(env$extendedStateSupport[sdx], 0L)),
+     -apply(env$Sdx[, env$nI + env$J_, drop = FALSE], 2L,
+            function(sdx) pmin(env$extendedStateSupport[sdx], 0L))
+    ) %*% c(env$alpha))
+
+  V_cache <- matrix(NA_real_, nrow = env$nSdx, ncol = env$tau + 1L)
+  V_cache[, env$tau + 1L] <- V_term
+
+  theta <- vfa_fit(V_term, env)
+
+  V_approx <- matrix(NA_real_, nrow = env$tau + 1L, ncol = env$nSdx)
+  pi_star  <- matrix(NA_real_, nrow = env$tau,       ncol = env$nSdx * env$nAdx)
+  V_approx[env$tau + 1L, ] <- V_term
+
+  cache_coverage <- integer(0L)
+  v_delta        <- numeric(0L)
+  V_history_t1   <- list()
+  pi_history_t1  <- list()
+  n_visited_list <- list()
+
+  iter      <- 0L
+  V_prev_t1 <- NULL
+
+  blend_v_next <- function(theta_cur, col) {
+    V_next <- vfa_eval(theta_cur, env)
+    cached <- V_cache[, col]
+    known  <- !is.na(cached)
+    if (any(known)) V_next[known] <- cached[known]
+    V_next
+  }
+
+  while (iter < n_iter) {
+    iter <- iter + 1L
+
+    epsilon_t <- if (is.null(s0)) 1.0 else epsilon * (1.0 - (iter - 1L) / n_iter)
+
+    visited_t <- vector("list", env$tau)
+    for (traj in seq(n_traj)) {
+      s <- if (is.null(s0) || runif(1L) < epsilon_t) {
+        sample(env$nSdx, 1L) - 1L
+      } else {
+        s0 - 1L
+      }
+      for (t in seq(env$tau)) {
+        V_next_tp1 <- blend_v_next(theta, t + 1L)
+        kdx_r      <- sample(env$nScen, 1L, prob = env$scnpb)
+        step <- simulateStepPtr(
+          problem_ptr  = prob,
+          t            = t - 1L,
+          state_idx    = s + 1L,
+          scenario_kdx = kdx_r,
+          stateSupport = as.double(env$stateSupport),
+          flowSupport  = as.double(env$Q$vals),
+          alpha        = env$alpha,
+          V_next       = V_next_tp1
+        )
+        visited_t[[t]] <- c(visited_t[[t]], s)
+        s <- step$next_state_idx
+      }
+    }
+
+    state_subsets <- lapply(visited_t, function(vs) sort(unique(vs)) + 1L)
+
+    nv_iter <- integer(env$tau)
+    for (t in seq(env$tau, 1L)) {
+      V_next    <- blend_v_next(theta, t + 1L)
+      state_idx <- state_subsets[[t]]
+      nv_iter[t] <- length(state_idx)
+
+      ## ── heuristic Bellman backup ────────────────────────────────────────────
+      step <- bellmanUpdateHeurPtr(
+        problem_ptr  = prob,
+        t            = t - 1L,
+        stateSupport = as.double(env$stateSupport),
+        flowSupport  = as.double(env$Q$vals),
+        scnpb        = env$scnpb,
+        alpha        = env$alpha,
+        V_next       = V_next,
+        numThreads   = numThreads,
+        lagrIter     = lagrIter,
+        stateSubset  = state_idx
+      )
+
+      v_t       <- step$V_t
+      ok_states <- state_idx[is.finite(v_t[state_idx])]
+      if (length(ok_states) > 0L) V_cache[ok_states, t] <- v_t[ok_states]
+
+      theta         <- vfa_fit(V_cache[, t], env)
+      V_approx[t, ] <- vfa_eval(theta, env)
+      pi_star[t, ]  <- step$pi_star_t
+    }
+
+    cache_coverage        <- c(cache_coverage, sum(!is.na(V_cache[, 1L])))
+    n_visited_list[[iter]] <- nv_iter
+
+    vd <- if (is.null(V_prev_t1)) Inf else .v_delta(V_approx[1L, ], V_prev_t1)
+    v_delta   <- c(v_delta, vd)
+    V_prev_t1 <- V_approx[1L, ]
+
+    V_history_t1 [[iter]] <- V_approx[1L, ]
+    pi_history_t1[[iter]] <- pi_star [1L, ]
+
+    if (iter >= min_iter && length(v_delta) >= patience) {
+      if (max(tail(v_delta, patience)) < tol) break
+    }
+  }
+
+  list(
+    V_cache        = V_cache,
+    V_approx       = V_approx,
+    pi_star        = pi_star,
+    cache_coverage = cache_coverage,
+    v_delta        = v_delta,
+    n_done         = iter,
+    V_history_t1   = do.call(rbind, V_history_t1),
+    pi_history_t1  = do.call(rbind, pi_history_t1),
+    n_visited      = do.call(rbind, n_visited_list)
+  )
+}

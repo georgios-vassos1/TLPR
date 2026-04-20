@@ -45,6 +45,18 @@ bellmanUpdatePtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, a
 
 #' @useDynLib TLPR
 #' @export
+bellmanUpdateHeurCx <- function(jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, lagrIter = 50L, stateSubset = NULL) {
+    .Call('_TLPR_bellmanUpdateHeurCx', PACKAGE = 'TLPR', jsonFile, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, lagrIter, stateSubset)
+}
+
+#' @useDynLib TLPR
+#' @export
+bellmanUpdateHeurPtr <- function(problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads = 8L, lagrIter = 50L, stateSubset = NULL) {
+    .Call('_TLPR_bellmanUpdateHeurPtr', PACKAGE = 'TLPR', problem_ptr, t, stateSupport, flowSupport, scnpb, alpha, V_next, numThreads, lagrIter, stateSubset)
+}
+
+#' @useDynLib TLPR
+#' @export
 simulateStepPtr <- function(problem_ptr, t, state_idx, scenario_kdx, stateSupport, flowSupport, alpha, V_next) {
     .Call('_TLPR_simulateStepPtr', PACKAGE = 'TLPR', problem_ptr, t, state_idx, scenario_kdx, stateSupport, flowSupport, alpha, V_next)
 }
@@ -101,6 +113,18 @@ solveModelCx <- function(model_ptr, transport_ptr) {
 #' @export
 optimizeModelFromJSON <- function(jsonFile, t, spotRates, storage_limits, volume) {
     .Call('_TLPR_optimizeModelFromJSON', PACKAGE = 'TLPR', jsonFile, t, spotRates, storage_limits, volume)
+}
+
+#' @useDynLib TLPR
+#' @export
+solveLPHeuristicCx <- function(jsonFile, t, spotRates, storage_limits, volume, nIter = 50L) {
+    .Call('_TLPR_solveLPHeuristicCx', PACKAGE = 'TLPR', jsonFile, t, spotRates, storage_limits, volume, nIter)
+}
+
+#' @useDynLib TLPR
+#' @export
+solveLPGreedyCx <- function(jsonFile, t, spotRates, storage_limits, volume) {
+    .Call('_TLPR_solveLPGreedyCx', PACKAGE = 'TLPR', jsonFile, t, spotRates, storage_limits, volume)
 }
 
 #' @useDynLib TLPR
