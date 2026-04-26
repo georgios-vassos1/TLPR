@@ -35,7 +35,7 @@ SDDP_ITER   <- 1000L
 N_TRIALS    <- 300L
 N_SCENARIOS <- 10L
 LAMBDA_VAL  <- 700.0
-CROSS_CORR  <- 0.4
+CROSS_CORR  <- 0.0
 
 ## Part A configs (TLPR instances, tau=4, LP proxy)
 CONFIGS <- list(
@@ -521,5 +521,27 @@ for (r in results)
               format(r$nSdx, big.mark = ","),
               r$v0_lp, r$vstar_lp, r$lp_reduction,
               r$sddp0_ub_v, r$sddp_star_ub_v, r$sddp_reduction))
+
+## ── Persist results ───────────────────────────────────────────────────────────
+dir.create("demo/results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(
+  list(
+    partA = results,
+    partB = list(
+      conv_hist    = conv_hist,
+      lb0          = lb0,
+      ub0          = ub0,
+      ub0_with_v   = ub0_with_v,
+      lb_star      = lb_star,
+      ub_star      = ub_star,
+      ubstar_with_v = ubstar_with_v,
+      x0           = x0_b,
+      x_star       = x_star_b,
+      sddp_b_reduction = sddp_b_reduction
+    )
+  ),
+  "demo/results/28_results.rds"
+)
+cat("\nResults saved to demo/results/28_results.rds\n")
 
 invisible(gc(verbose = FALSE))

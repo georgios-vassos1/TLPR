@@ -39,7 +39,7 @@ CROSS_CORR_VALS <- c(0.0, 0.2, 0.4)    # cross-block copula correlation
 SPOT_MULT_VALS  <- c(1.0, 2.0, 4.0)    # spot cost multiplier (1x = base U[3,9])
 
 ## Fixed values used when the other axes are swept
-FIXED_CROSS      <- 0.4
+FIXED_CROSS      <- 0.0
 FIXED_LAMBDA     <- 700.0
 FIXED_SPOT_MULT  <- 1.0                 # base spot cost level
 
@@ -246,5 +246,11 @@ for (r in res_spot)
   cat(sprintf("$%.0f\\times$ & $%.0f$ & $%.0f$ & $%.0f \\pm %.0f$ & $%.2f\\%%$ & $%.0f$ \\\\\n",
               r$spot_mult, r$spot_mult * 6.0,
               r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
+
+## ── Persist results ───────────────────────────────────────────────────────────
+dir.create("demo/results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(list(lambda = res_lambda, corr = res_corr, spot = res_spot),
+        "demo/results/25_results.rds")
+cat("\nResults saved to demo/results/25_results.rds\n")
 
 invisible(gc(verbose = FALSE))

@@ -82,14 +82,14 @@ lambda_val <- sum(e$Q$vals * e$Q$prob)
 lambda_vec <- rep(lambda_val, e$nI + e$nJ)
 nOD        <- e$nI + e$nJ
 corrmat    <- MSTP::gen_corrmat(n_blocks = 2L, block_size = max(e$nI, e$nJ),
-                                 cross_corr = 0.4)
+                                 cross_corr = 0.0)
 if (nrow(corrmat) > nOD) corrmat <- corrmat[1:nOD, 1:nOD]
 
 inst   <- tlpr_env_to_mstp_inst(e)
 config <- MSTP::mstp_config(inst, lambda = lambda_vec, corrmat = corrmat,
                              n_scenarios = N_SCENARIOS)
 
-cat(sprintf("Lambda = %.3f x %d dims  |  Corr: 2-block (cross=0.4)\n",
+cat(sprintf("Lambda = %.3f x %d dims  |  Corr: 2-block (cross=0.0, O-D independent)\n",
             lambda_val, nOD))
 
 ## ── Train + simulate ────────────────────────────────────────────────────────
@@ -270,4 +270,11 @@ cat(sprintf("$%.2f$ & $%.2f$ & $%.2f\\%%$ & $%.2f\\%%$ \\\\\n",
             100 * mean(gain), 100 * sd(gain)))
 
 unlink(tmpf)
+
+## ── Persist results ───────────────────────────────────────────────────────────
+dir.create("demo/results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(list(sims_obj = sims$obj, myopic_cost = myopic_cost, gain = gain, lb = lb),
+        "demo/results/20_results.rds")
+cat("\nResults saved to demo/results/20_results.rds\n")
+
 invisible(gc(verbose = FALSE))

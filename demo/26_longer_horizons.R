@@ -32,7 +32,7 @@ N_TRIALS    <- 200L
 N_SCENARIOS <- 10L
 
 LAMBDA_VAL <- 700.0   # medium demand rate (≈ Schmiedel mean demand)
-CROSS_CORR <- 0.4
+CROSS_CORR <- 0.0
 
 TAU_VALS <- c(12L, 26L, 52L)
 
@@ -168,5 +168,10 @@ for (r in results)
               r$tau, r$lb, r$per_period_lb,
               r$ub, r$ub_sd, r$per_period_ub,
               r$gap_pct, r$t_train))
+
+## ── Persist results ───────────────────────────────────────────────────────────
+dir.create("demo/results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(results, "demo/results/26_results.rds")
+cat("\nResults saved to demo/results/26_results.rds\n")
 
 invisible(gc(verbose = FALSE))

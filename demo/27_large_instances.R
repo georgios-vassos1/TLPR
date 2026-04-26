@@ -28,7 +28,7 @@ SEED        <- 42L
 N_TRIALS    <- 100L
 N_SCENARIOS <- 10L
 LAMBDA_VAL  <- 700.0
-CROSS_CORR  <- 0.4
+CROSS_CORR  <- 0.0
 
 ## Instance configurations: topology parameters and SDDP iteration budget
 INSTANCE_CONFIGS <- list(
@@ -164,5 +164,10 @@ for (r in results) {
               r$label, r$nI, r$nJ, r$nCS, r$tau, r$nIter,
               r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
 }
+
+## ── Persist results ───────────────────────────────────────────────────────────
+dir.create("demo/results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(results, "demo/results/27_results.rds")
+cat("\nResults saved to demo/results/27_results.rds\n")
 
 invisible(gc(verbose = FALSE))

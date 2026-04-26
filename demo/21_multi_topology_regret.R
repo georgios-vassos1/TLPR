@@ -160,7 +160,7 @@ for (ci in seq_along(CONFIGS)) {
   nOD        <- cfg$nI + cfg$nJ
   corrmat    <- MSTP::gen_corrmat(n_blocks = 2L,
                                    block_size = max(cfg$nI, cfg$nJ),
-                                   cross_corr = 0.4)
+                                   cross_corr = 0.0)
   if (nrow(corrmat) > nOD) corrmat <- corrmat[1:nOD, 1:nOD]
 
   inst   <- tlpr_env_to_mstp_inst(e)
@@ -325,5 +325,10 @@ for (p in qq_probs) {
   }
   cat("\n")
 }
+
+## ── Persist results ───────────────────────────────────────────────────────────
+dir.create("demo/results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(results, "demo/results/21_results.rds")
+cat("\nResults saved to demo/results/21_results.rds\n")
 
 invisible(gc(verbose = FALSE))

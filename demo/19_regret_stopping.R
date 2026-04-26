@@ -85,14 +85,14 @@ lambda_val <- sum(e$Q$vals * e$Q$prob)
 lambda_vec <- rep(lambda_val, e$nI + e$nJ)
 nOD        <- e$nI + e$nJ
 corrmat    <- MSTP::gen_corrmat(n_blocks = 2L, block_size = max(e$nI, e$nJ),
-                                 cross_corr = 0.4)
+                                 cross_corr = 0.0)
 if (nrow(corrmat) > nOD) corrmat <- corrmat[1:nOD, 1:nOD]
 
 inst   <- tlpr_env_to_mstp_inst(e)
 config <- MSTP::mstp_config(inst, lambda = lambda_vec, corrmat = corrmat,
                              n_scenarios = N_SCENARIOS)
 
-cat(sprintf("Lambda = %.3f × %d dims  |  Corr: 2-block (cross=0.4)\n",
+cat(sprintf("Lambda = %.3f × %d dims  |  Corr: 2-block (cross=0.0, O-D independent)\n",
             lambda_val, nOD))
 cat(sprintf("Scenarios/iter = %d  |  OOB trials = %d\n", N_SCENARIOS, N_TRIALS))
 
@@ -271,4 +271,10 @@ cat("achieved 0.3-3.5% but dismissed regret stopping due to large negative biase
 cat("Under copula uncertainty + single-cut, we expect well-concentrated regret.\n")
 
 unlink(tmpf)
+
+## ── Persist results ───────────────────────────────────────────────────────────
+dir.create("demo/results", showWarnings = FALSE, recursive = TRUE)
+saveRDS(results, "demo/results/19_results.rds")
+cat("\nResults saved to demo/results/19_results.rds\n")
+
 invisible(gc(verbose = FALSE))
