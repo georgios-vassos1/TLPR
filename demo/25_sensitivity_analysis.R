@@ -6,6 +6,9 @@
 ##
 ##   Sweep 1 — demand rate λ ∈ {200, 700, 2000}  (ρ_cross = 0.4)
 ##   Sweep 2 — cross-block correlation ρ_cross ∈ {0.0, 0.2, 0.4}  (λ = 700)
+##   Sweep 3 — spot rate multiplier m ∈ {1, 2, 4}  (λ = 700, ρ_cross = 0.4)
+##             spot_coef scaled by m relative to base U[3,9]; tests whether
+##             spot price risk materially affects policy cost and gap%.
 ##
 ## Primary metric: SDDP gap% = (UB − LB) / |LB| × 100
 ##   UB = mean cost over 200 OOB trials
@@ -15,7 +18,7 @@
 ##   their σ ∈ {60,350,700} maps to our λ ∈ {200,700,2000}
 ##   their ρ ∈ {0,0.4,0.8}  maps to our ρ_cross ∈ {0.0,0.2,0.4}
 ##
-## Addresses: G1 (Poisson marginals), G2 (correlated demand), R5
+## Addresses: G1 (Poisson marginals), G2 (correlated demand), G4 (spot risk), R5
 ## ============================================================
 
 suppressPackageStartupMessages({
@@ -33,10 +36,12 @@ N_INST      <- 3L   # number of instances averaged per configuration
 ## Parameter grids
 LAMBDA_VALS     <- c(200, 700, 2000)    # Poisson demand intensity
 CROSS_CORR_VALS <- c(0.0, 0.2, 0.4)    # cross-block copula correlation
+SPOT_MULT_VALS  <- c(1.0, 2.0, 4.0)    # spot cost multiplier (1x = base U[3,9])
 
-## Fixed values used when the other axis is swept
-FIXED_CROSS  <- 0.4
-FIXED_LAMBDA <- 700.0
+## Fixed values used when the other axes are swept
+FIXED_CROSS      <- 0.4
+FIXED_LAMBDA     <- 700.0
+FIXED_SPOT_MULT  <- 1.0                 # base spot cost level
 
 ## ── Generate instances ──────────────────────────────────────────────────────
 
@@ -52,7 +57,10 @@ cat(sprintf("Generated %d instance(s) (6×6×20, τ=12, seeds %d–%d)\n\n",
 
 ## ── Helper: train + simulate one configuration ──────────────────────────────
 
-run_config <- function(inst, lambda_val, cross_corr) {
+run_config <- function(inst, lambda_val, cross_corr, spot_mult = 1.0) {
+  inst_run <- inst
+  inst_run$spot_coef <- inst$spot_coef * spot_mult
+
   lambda_vec <- rep(as.numeric(lambda_val),
                     inst$nOrigins + inst$nDestinations)
   corrmat <- MSTP::gen_corrmat(
@@ -61,7 +69,7 @@ run_config <- function(inst, lambda_val, cross_corr) {
     cross_corr = cross_corr
   )
 
-  config <- MSTP::mstp_config(inst,
+  config <- MSTP::mstp_config(inst_run,
                                lambda      = lambda_vec,
                                corrmat     = corrmat,
                                n_scenarios = N_SCENARIOS)
@@ -140,6 +148,35 @@ for (ci in seq_along(CROSS_CORR_VALS)) {
               agg$lb, agg$ub, agg$ub_sd, agg$gap_pct, agg$t_train))
 }
 
+## ── Sweep 3: spot multiplier variation  (λ = FIXED_LAMBDA, ρ = FIXED_CROSS) ─
+
+cat(sprintf("\n%s\n", strrep("=", 70)))
+cat(sprintf("SWEEP 3: spot rate multiplier  (λ = %.0f, ρ_cross = %.1f, n_inst = %d)\n",
+            FIXED_LAMBDA, FIXED_CROSS, N_INST))
+cat(sprintf("  base spot_coef ~ U[3,9]; multiplier scales mean spot rate\n"))
+cat(sprintf("  mean contracted ≈ 7; spot means at 1x=6, 2x=12, 4x=24\n"))
+cat(strrep("=", 70), "\n\n")
+
+res_spot <- vector("list", length(SPOT_MULT_VALS))
+
+for (si in seq_along(SPOT_MULT_VALS)) {
+  sm <- SPOT_MULT_VALS[si]
+  cat(sprintf("  spot_mult = %.1f (mean spot ≈ %.0f) ... ", sm, sm * 6.0))
+  flush.console()
+
+  runs <- lapply(instances, run_config,
+                 lambda_val = FIXED_LAMBDA,
+                 cross_corr = FIXED_CROSS,
+                 spot_mult  = sm)
+
+  agg <- aggregate_runs(runs)
+  res_spot[[si]] <- c(list(spot_mult = sm, lambda = FIXED_LAMBDA,
+                            cross_corr = FIXED_CROSS), agg)
+
+  cat(sprintf("LB=%.0f  UB=%.0f±%.0f  Gap=%.2f%%  Train=%.1fs\n",
+              agg$lb, agg$ub, agg$ub_sd, agg$gap_pct, agg$t_train))
+}
+
 ## ── Summary tables ──────────────────────────────────────────────────────────
 
 cat("\n\n", strrep("=", 82), "\n", sep = "")
@@ -166,6 +203,19 @@ for (r in res_corr)
               r$cross_corr, r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
 cat(strrep("=", 82), "\n")
 
+cat("\n\n", strrep("=", 82), "\n", sep = "")
+cat(sprintf("SENSITIVITY: spot multiplier  (λ=%.0f, ρ_cross=%.1f, averaged over %d instances)\n",
+            FIXED_LAMBDA, FIXED_CROSS, N_INST))
+cat(strrep("=", 82), "\n")
+cat(sprintf("%-10s  %10s  %10s  %10s  %10s  %8s  %8s\n",
+            "spot_mult", "mean_spot", "LB", "UB", "UB_sd", "Gap%", "Train(s)"))
+cat(strrep("-", 82), "\n")
+for (r in res_spot)
+  cat(sprintf("%-10.1f  %10.1f  %10.1f  %10.1f  %10.1f  %7.2f%%  %7.1fs\n",
+              r$spot_mult, r$spot_mult * 6.0,
+              r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
+cat(strrep("=", 82), "\n")
+
 cat(sprintf("\nInstance: 6×6×20 (tau=12)  |  SDDP iters=%d  |  OOB trials=%d  |  n_inst=%d\n",
             SDDP_ITER, N_TRIALS, N_INST))
 cat("Copula: Gaussian 2-block corrmat, Poisson(λ) marginals\n")
@@ -188,5 +238,13 @@ cat("\\hline\n")
 for (r in res_corr)
   cat(sprintf("$%.1f$ & $%.0f$ & $%.0f \\pm %.0f$ & $%.2f\\%%$ & $%.0f$ \\\\\n",
               r$cross_corr, r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
+
+cat("\n%% Sweep 3: spot multiplier variation\n")
+cat("$m$ & $\\bar{c}_{\\rm spot}$ & LB & UB ($\\pm$ sd) & Gap\\% & Train (s) \\\\\n")
+cat("\\hline\n")
+for (r in res_spot)
+  cat(sprintf("$%.0f\\times$ & $%.0f$ & $%.0f$ & $%.0f \\pm %.0f$ & $%.2f\\%%$ & $%.0f$ \\\\\n",
+              r$spot_mult, r$spot_mult * 6.0,
+              r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
 
 invisible(gc(verbose = FALSE))
