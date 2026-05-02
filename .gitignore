@@ -28,7 +28,12 @@ INSTALL
 demo/*.rds
 demo/*.RData
 demo/*.log
+demo/results/*.log
 SDDP.log
+
+# SDDP.jl debug artifacts (infeasible subproblem dumps)
+*.cuts.json
+*.mof.json
 
 # Scratch / debug files
 archived/
