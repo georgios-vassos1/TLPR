@@ -101,7 +101,76 @@ cat("V[t=1, s=1] ≈", r2$V_approx[1L, 1L], "\n")
 
 ---
 
-## Demo scripts
+## SDDP pipeline (paper: arXiv:2505.01808)
+
+The demo scripts 20–32 implement the SDDP-based framework described in the paper. They depend on the [MSTP](../MSTP) R package for instance generation and the [SDDP.jl](https://github.com/odow/SDDP.jl) Julia library (accessed via JuliaCall) for training and simulation.
+
+**Core pipeline:**
+
+```
+MSTP::generate_instance()       # build MSTP instance (carriers, lanes, cost coefficients,
+                                #   lambda-calibrated capacities, spot pricing)
+    ↓
+MSTP::mstp_config()             # populate Julia-side HyperParams struct
+    ↓
+MSTP::train_model()             # SDDP.jl training: single-cut Benders, HiGHS solver,
+                                #   batched crash-resilient loop with cut checkpointing
+    ↓
+MSTP::simulate_model()          # out-of-bag evaluation: Gaussian copula draws,
+                                #   per-trial SDDP cost
+    ↓
+MSTP::clairvoyant_lp()          # per-trial perfect-foresight LP lower bound (HiGHS)
+    ↓
+regret = (SDDP_i - LP*_i) / |LP*_i|   # clairvoyant-LP regret metric
+```
+
+**Capacity optimization extension (demo/28, demo/32):**
+
+```
+MSTP::capacity_duals()          # extract SDDP stage dual variables (shadow prices)
+    ↓
+stochastic gradient ∇f = v - E[μ]     # reservation cost minus expected dual
+    ↓
+projected gradient descent on x        # normalised step, box projection to [0, x̄]
+    ↓
+MSTP::simulate_model()          # re-evaluate at updated capacities
+```
+
+The LP proxy baseline (`demo/32`) optimises capacities via L-BFGS-B on the deterministic mean-scenario LP (via `optim(..., method="L-BFGS-B")` with exact LP duals from `highs_solve()`), serving as a comparison point for the SDDP dual gradient.
+
+**Uncertainty model:**
+
+Container inflows and outflows are drawn from a Gaussian copula with Poisson marginals. The correlation matrix has a two-block structure (within-origins, within-destinations, cross-block):
+
+```r
+# Block structure of the (nI + nJ) × (nI + nJ) correlation matrix
+Σ = [ ρ_within * J + (1-ρ_within) * I,   ρ_cross * J  ]
+    [ ρ_cross * J,                         ρ_within * J + (1-ρ_within) * I ]
+```
+
+Scenario draws use the NORTA method: Gaussian samples from `mvtnorm::rmvnorm(Σ)` transformed to Poisson quantiles via `qpois(pnorm(...))`.
+
+---
+
+## Demo scripts (SDDP era, 20–32)
+
+| Script | Description |
+|---|---|
+| `demo/20_vss.R` | Gain of multi-stage recourse: SDDP vs myopic single-stage policy |
+| `demo/21_multi_topology_regret.R` | Clairvoyant-LP regret across topologies (1×1 through 6×6) |
+| `demo/24_sddp_rtdp_apples_benchmark.R` | Apples-to-apples cost comparison: SDDP vs RTDP on shared OOB trajectories |
+| `demo/25_sensitivity_analysis.R` | Parameter sweeps: λ ∈ {200,700,2000}, ρ_cross ∈ {0,0.2,0.4}, spot mult ∈ {1,2,4} |
+| `demo/26_longer_horizons.R` | SDDP on τ ∈ {12,26,52} horizons (closes gap with Schmiedel 2025) |
+| `demo/27_large_instances.R` | Scalability showcase: 20×20×100 and 40×40×100 instances |
+| `demo/28_sddp_capacity_opt.R` | SDDP dual projected gradient capacity optimisation, 6×6×20, λ=50 |
+| `demo/29_paper_figures.R` | Generate all publication figures from cached RDS results |
+| `demo/32_lp_proxy_mstp.R` | Head-to-head: LP proxy (+32.3%) vs SDDP duals (−8.4%) vs default on 6×6×20 |
+
+Results are cached under `demo/results/` as `.rds` files. `demo/29_paper_figures.R` reads these and writes figures to `demo/figs/`.
+
+---
+
+## Demo scripts (exact DP / ADP era, 01–14)
 
 Run the numbered pipeline in order; each script caches its output for the next.
 
