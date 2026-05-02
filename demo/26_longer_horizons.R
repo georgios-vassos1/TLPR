@@ -27,7 +27,7 @@ suppressPackageStartupMessages({
 ## ── Parameters ──────────────────────────────────────────────────────────────
 
 SEED        <- 42L
-SDDP_ITER   <- 1000L   # same iteration budget for all horizons
+SDDP_ITER   <- 300L    # 300 iters with tighter HiGHS dual tolerance avoids LB overshoot
 N_TRIALS    <- 200L
 N_SCENARIOS <- 10L
 
@@ -51,15 +51,22 @@ for (ti in seq_along(TAU_VALS)) {
 
   cat(sprintf("\n%s\n[τ = %d]\n%s\n", strrep("=", 60), tau, strrep("=", 60)))
 
-  ## Generate instance with this horizon
+  ## Generate instance with this horizon.
+  ## Storage capacity = 2× worst-case accumulation (λ × τ) — scales with τ
+  ## so inventory pressure is consistent across the horizon sweep and the
+  ## cap never causes infeasibility while remaining demand-proportional.
+  ##   τ=12: cap = 16800  |  τ=26: cap = 36400  |  τ=52: cap = 72800
+  cap_prop <- rep(as.integer(round(LAMBDA_VAL * tau * 2.0)), 6L)
   inst <- MSTP::generate_instance(
-    tau           = tau,
-    nOrigins      = 6L,
-    nDestinations = 6L,
-    nCarriers     = 20L,
-    nSpotCarriers = 20L,
-    nBids         = 10L,
-    seed          = SEED
+    tau            = tau,
+    nOrigins       = 6L,
+    nDestinations  = 6L,
+    nCarriers      = 20L,
+    nSpotCarriers  = 20L,
+    nBids          = 10L,
+    seed           = SEED,
+    entry_capacity = cap_prop,
+    exit_capacity  = cap_prop
   )
 
   nOD        <- inst$nOrigins + inst$nDestinations
@@ -81,17 +88,37 @@ for (ti in seq_along(TAU_VALS)) {
                                n_scenarios = N_SCENARIOS)
 
   cat(sprintf("  Training SDDP (%d iterations)...\n", SDDP_ITER))
-  t0    <- proc.time()[["elapsed"]]
-  model <- MSTP::mstp_train(config, iterations = SDDP_ITER)
-  t_tr  <- proc.time()[["elapsed"]] - t0
+  ## Retry on JuliaCall numerical errors (Julia restarts between attempts)
+  tau_result <- NULL
+  for (.attempt in 1:6L) {
+    tau_result <- tryCatch({
+      t0    <- proc.time()[["elapsed"]]
+      model <- MSTP::mstp_train(config, iterations = SDDP_ITER)
+      t_tr  <- proc.time()[["elapsed"]] - t0
 
-  lb <- MSTP::mstp_bound(model)
+      lb <- MSTP::mstp_bound(model)
+
+      t0   <- proc.time()[["elapsed"]]
+      sims <- MSTP::mstp_simulate(model, config, trials = N_TRIALS)
+      t_si <- proc.time()[["elapsed"]] - t0
+
+      list(model = model, lb = lb, sims = sims, t_tr = t_tr, t_si = t_si)
+    }, error = function(e) {
+      cat(sprintf("  [attempt %d failed: %s — retrying]\n", .attempt, conditionMessage(e)))
+      NULL
+    })
+    if (!is.null(tau_result)) break
+  }
+  if (is.null(tau_result)) stop("tau=", tau, " failed after 6 attempts")
+  model  <- tau_result$model
+  lb     <- tau_result$lb
+  sims   <- tau_result$sims
+  t_tr   <- tau_result$t_tr
+  t_si   <- tau_result$t_si
+
   cat(sprintf("  Train: %.1fs  |  LB = %.2f\n", t_tr, lb))
-
   cat(sprintf("  Simulating %d OOB trials...\n", N_TRIALS))
-  t0   <- proc.time()[["elapsed"]]
-  sims <- MSTP::mstp_simulate(model, config, trials = N_TRIALS)
-  t_si <- proc.time()[["elapsed"]] - t0
+  cat(sprintf("  Sim:   %.1fs\n", t_si))
 
   ub      <- mean(sims$obj)
   ub_sd   <- sd(sims$obj)

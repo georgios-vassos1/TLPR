@@ -58,6 +58,7 @@ cat(strrep("=", 70), "\n\n")
 
 cat("F1: Corrmat heatmap...\n")
 
+set.seed(3L)  # seed 3 -> rho_OO=0.6, rho_DD=0.7 for reproducible caption
 cm <- MSTP::gen_corrmat(n_blocks = 2L, block_size = 6L, cross_corr = 0.0)
 n  <- nrow(cm)
 
@@ -242,62 +243,7 @@ if (!file.exists(rds_19)) {
   save_fig(f4, "F4_regret_iterations", width = 7, height = 5)
 }
 
-## ══════════════════════════════════════════════════════════════════════════════
-## F5 — Capacity optimisation convergence (demo/28 Part B)
-## ══════════════════════════════════════════════════════════════════════════════
-
-cat("F5: Capacity optimisation convergence...\n")
-
-rds_28 <- file.path(RESULTS_DIR, "28_results.rds")
-if (!file.exists(rds_28)) {
-  cat("  SKIP: demo/results/28_results.rds not found (run demo/28 first)\n")
-} else {
-  r28 <- readRDS(rds_28)
-  ch  <- r28$partB$conv_hist
-
-  dt_conv <- rbindlist(lapply(ch, function(h)
-    data.table(
-      iter      = h$iter,
-      obj       = h$obj,
-      lb        = h$lb,
-      grad_norm = h$grad_norm,
-      x_change  = if (is.na(h$x_change)) 0.0 else h$x_change,
-      warm      = h$warm
-    )
-  ))
-
-  ## Panel A: objective (LB + v·x) vs iteration
-  pa5 <- ggplot(dt_conv, aes(x = iter, y = obj)) +
-    geom_line(colour = "steelblue4", linewidth = 1) +
-    geom_point(aes(shape = warm), size = 3, colour = "steelblue4") +
-    scale_shape_manual(values = c("FALSE" = 16L, "TRUE" = 17L),
-                       labels = c("FALSE" = "Cold", "TRUE" = "Warm"),
-                       name = "SDDP start") +
-    labs(x = "Outer iteration k", y = "Objective LB + v·x",
-         title = "(a) Objective convergence") +
-    theme_pub()
-
-  ## Panel B: |Δx| vs iteration (skip iter 0 which has no Δx)
-  dt_dx <- dt_conv[iter > 0L]
-  pb5 <- ggplot(dt_dx, aes(x = iter, y = x_change)) +
-    geom_line(colour = "tomato3", linewidth = 1) +
-    geom_point(size = 3, colour = "tomato3") +
-    labs(x = "Outer iteration k", y = expression("|" * Delta * "x|"),
-         title = "(b) Capacity step size") +
-    theme_pub()
-
-  if (requireNamespace("patchwork", quietly = TRUE)) {
-    f5 <- patchwork::wrap_plots(pa5, pb5, nrow = 1L) +
-      patchwork::plot_annotation(
-        title    = "SDDP capacity optimisation — projected gradient convergence",
-        subtitle = "6x6x20 instance, tau=12 | step = alpha0/sqrt(k)"
-      )
-    save_fig(f5, "F5_cap_opt_convergence", width = 10, height = 4.5)
-  } else {
-    save_fig(pa5, "F5a_cap_opt_obj",    width = 5.5, height = 4.5)
-    save_fig(pb5, "F5b_cap_opt_dx",     width = 5.5, height = 4.5)
-  }
-}
+## (F5 — capacity optimisation convergence removed: demo/31 archived)
 
 ## ══════════════════════════════════════════════════════════════════════════════
 ## Done

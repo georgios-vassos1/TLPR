@@ -4,11 +4,11 @@
 ## Demonstrates SDDP scalability on instances that exceed
 ## Schmiedel (2025) in network width and carrier count:
 ##
-##   20×20×400  (nI=20, nJ=20, nCS=400, nCSO=400, τ=12)
-##   40×40×400  (nI=40, nJ=40, nCS=400, nCSO=400, τ=12)
+##   20×20×100  (nI=20, nJ=20, nCS=100, τ=12)
+##   40×40×100  (nI=40, nJ=40, nCS=100, τ=12)
 ##
 ## Schmiedel's largest: 10×50, 3 strategic + ∞ spot, τ ∈ {12,26,52}.
-## Our instances have 133× more contracted carriers and larger
+## Our instances have 33× more contracted carriers and larger
 ## networks, while keeping the stochastic spot rate model.
 ##
 ## Instances generated fresh via MSTP::generate_instance().
@@ -25,16 +25,20 @@ suppressPackageStartupMessages({
 ## ── Parameters ──────────────────────────────────────────────────────────────
 
 SEED        <- 42L
-N_TRIALS    <- 100L
+N_TRIALS    <- 50L    # reduced for large instances (simulation is also expensive)
 N_SCENARIOS <- 10L
 LAMBDA_VAL  <- 700.0
 CROSS_CORR  <- 0.0
 
-## Instance configurations: topology parameters and SDDP iteration budget
+## Instance configurations: topology parameters and SDDP iteration budget.
+## Large instances (20×20×100, 40×40×100) use reduced iteration counts because
+## each SDDP iteration is expensive at this scale.
+## 50 and 20 iterations are sufficient to demonstrate convergence and measure
+## per-iteration runtime; gap% reflects early-stage convergence, not asymptotic.
 INSTANCE_CONFIGS <- list(
-  list(label="6×6×20",   nI=6L,  nJ=6L,  nCS=20L,  nIter=1000L),
-  list(label="20×20×400", nI=20L, nJ=20L, nCS=400L, nIter=500L),
-  list(label="40×40×400", nI=40L, nJ=40L, nCS=400L, nIter=300L)
+  list(label="6×6×20",   nI=6L,  nJ=6L,  nCS=20L,  nIter=500L),
+  list(label="20×20×100", nI=20L, nJ=20L, nCS=100L, nIter=50L),
+  list(label="40×40×100", nI=40L, nJ=40L, nCS=100L, nIter=20L)
 )
 
 cat("\n", strrep("=", 70), "\n", sep = "")
@@ -82,17 +86,37 @@ for (ci in seq_along(INSTANCE_CONFIGS)) {
                                n_scenarios = N_SCENARIOS)
 
   cat(sprintf("  Training SDDP (%d iterations)...\n", cfg$nIter))
-  t0    <- proc.time()[["elapsed"]]
-  model <- MSTP::mstp_train(config, iterations = cfg$nIter)
-  t_tr  <- proc.time()[["elapsed"]] - t0
+  ## Retry on JuliaCall numerical errors (Julia restarts between attempts)
+  inst_result <- NULL
+  for (.attempt in 1:6L) {
+    inst_result <- tryCatch({
+      t0    <- proc.time()[["elapsed"]]
+      model <- MSTP::mstp_train(config, iterations = cfg$nIter)
+      t_tr  <- proc.time()[["elapsed"]] - t0
 
-  lb <- MSTP::mstp_bound(model)
+      lb <- MSTP::mstp_bound(model)
+
+      t0   <- proc.time()[["elapsed"]]
+      sims <- MSTP::mstp_simulate(model, config, trials = N_TRIALS)
+      t_si <- proc.time()[["elapsed"]] - t0
+
+      list(model = model, lb = lb, sims = sims, t_tr = t_tr, t_si = t_si)
+    }, error = function(e) {
+      cat(sprintf("  [attempt %d failed: %s — retrying]\n", .attempt, conditionMessage(e)))
+      NULL
+    })
+    if (!is.null(inst_result)) break
+  }
+  if (is.null(inst_result)) stop(cfg$label, " failed after 6 attempts")
+  model  <- inst_result$model
+  lb     <- inst_result$lb
+  sims   <- inst_result$sims
+  t_tr   <- inst_result$t_tr
+  t_si   <- inst_result$t_si
+
   cat(sprintf("  Train: %.1fs  |  LB = %.2f\n", t_tr, lb))
-
   cat(sprintf("  Simulating %d OOB trials...\n", N_TRIALS))
-  t0   <- proc.time()[["elapsed"]]
-  sims <- MSTP::mstp_simulate(model, config, trials = N_TRIALS)
-  t_si <- proc.time()[["elapsed"]] - t0
+  cat(sprintf("  Sim:   %.1fs\n", t_si))
 
   ub      <- mean(sims$obj)
   ub_sd   <- sd(sims$obj)
@@ -146,7 +170,7 @@ cat(sprintf("λ=%.0f  |  ρ_cross=%.1f  |  OOB trials=%d  |  Scenarios/iter=%d\n
             LAMBDA_VAL, CROSS_CORR, N_TRIALS, N_SCENARIOS))
 cat("\nKey comparisons vs Schmiedel (2025):\n")
 cat("  Network width: our 40×40 > Schmiedel's 10×50 in carrier lanes\n")
-cat("  Carrier count: our 400 contracted vs Schmiedel's 3 strategic\n")
+cat("  Carrier count: our 100 contracted vs Schmiedel's 3 strategic\n")
 cat("  Spot model: our stochastic finite-capacity vs deterministic infinite\n")
 cat("  Solver: HiGHS (open-source) vs Gurobi\n")
 cat("Gap% = (UB − LB) / |LB| × 100\n")

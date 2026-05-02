@@ -4,10 +4,10 @@
 ## Sweeps key uncertainty model parameters on 6×6×20 instances
 ## (tau=12, nOrigins=6, nDestinations=6, nCarriers=20):
 ##
-##   Sweep 1 — demand rate λ ∈ {200, 700, 2000}  (ρ_cross = 0.4)
+##   Sweep 1 — demand rate λ ∈ {200, 700, 2000}  (ρ_cross = 0.0)
 ##   Sweep 2 — cross-block correlation ρ_cross ∈ {0.0, 0.2, 0.4}  (λ = 700)
-##   Sweep 3 — spot rate multiplier m ∈ {1, 2, 4}  (λ = 700, ρ_cross = 0.4)
-##             spot_coef scaled by m relative to base U[3,9]; tests whether
+##   Sweep 3 — spot rate multiplier m ∈ {1, 2, 4}  (λ = 700, ρ_cross = 0.0)
+##             spot_coef scaled by m relative to base U[8,12]; tests whether
 ##             spot price risk materially affects policy cost and gap%.
 ##
 ## Primary metric: SDDP gap% = (UB − LB) / |LB| × 100
@@ -36,7 +36,7 @@ N_INST      <- 3L   # number of instances averaged per configuration
 ## Parameter grids
 LAMBDA_VALS     <- c(200, 700, 2000)    # Poisson demand intensity
 CROSS_CORR_VALS <- c(0.0, 0.2, 0.4)    # cross-block copula correlation
-SPOT_MULT_VALS  <- c(1.0, 2.0, 4.0)    # spot cost multiplier (1x = base U[3,9])
+SPOT_MULT_VALS  <- c(1.0, 2.0, 4.0)    # spot cost multiplier (1x = base U[8,12])
 
 ## Fixed values used when the other axes are swept
 FIXED_CROSS      <- 0.0
@@ -49,6 +49,8 @@ cat("\n", strrep("=", 70), "\n", sep = "")
 cat("25_sensitivity_analysis.R — λ and ρ sweeps on 6×6×20\n")
 cat(strrep("=", 70), "\n\n")
 
+## Generate instances with default capacities; run_config overrides storage
+## caps proportionally to lambda so each regime gets a realistic buffer.
 instances <- lapply(seq_len(N_INST), function(i)
   MSTP::generate_instance(tau=12L, nOrigins=6L, nDestinations=6L,
                            nCarriers=20L, seed=SEED + i - 1L))
@@ -60,6 +62,11 @@ cat(sprintf("Generated %d instance(s) (6×6×20, τ=12, seeds %d–%d)\n\n",
 run_config <- function(inst, lambda_val, cross_corr, spot_mult = 1.0) {
   inst_run <- inst
   inst_run$spot_coef <- inst$spot_coef * spot_mult
+  ## Storage capacity: 2× worst-case accumulation (λ × τ) — scales with demand
+  ## so inventory pressure is consistent across the λ sweep.
+  cap_prop <- as.integer(round(lambda_val * inst$tau * 2.0))
+  inst_run$entry_capacity <- rep(cap_prop, inst$nOrigins)
+  inst_run$exit_capacity  <- rep(cap_prop, inst$nDestinations)
 
   lambda_vec <- rep(as.numeric(lambda_val),
                     inst$nOrigins + inst$nDestinations)
@@ -92,6 +99,21 @@ run_config <- function(inst, lambda_val, cross_corr, spot_mult = 1.0) {
        t_train = t_tr, t_sim = t_si)
 }
 
+## Retry wrapper: if a JuliaCall error escapes (Julia restarts), re-run from scratch.
+run_config_safe <- function(..., max_retries = 6L) {
+  for (attempt in seq_len(max_retries)) {
+    result <- tryCatch(
+      run_config(...),
+      error = function(e) {
+        cat(sprintf("  [attempt %d failed: %s — retrying]\n", attempt, conditionMessage(e)))
+        NULL
+      }
+    )
+    if (!is.null(result)) return(result)
+  }
+  stop("run_config failed after ", max_retries, " attempts")
+}
+
 aggregate_runs <- function(runs) {
   fields <- c("lb", "ub", "ub_sd", "gap_pct", "t_train")
   mat    <- do.call(rbind, lapply(runs, function(r) unlist(r[fields])))
@@ -112,7 +134,7 @@ for (li in seq_along(LAMBDA_VALS)) {
   cat(sprintf("  λ = %4d ... ", lv))
   flush.console()
 
-  runs <- lapply(instances, run_config,
+  runs <- lapply(instances, run_config_safe,
                  lambda_val = lv,
                  cross_corr = FIXED_CROSS)
 
@@ -137,7 +159,7 @@ for (ci in seq_along(CROSS_CORR_VALS)) {
   cat(sprintf("  ρ_cross = %.1f ... ", cc))
   flush.console()
 
-  runs <- lapply(instances, run_config,
+  runs <- lapply(instances, run_config_safe,
                  lambda_val = FIXED_LAMBDA,
                  cross_corr = cc)
 
@@ -153,18 +175,18 @@ for (ci in seq_along(CROSS_CORR_VALS)) {
 cat(sprintf("\n%s\n", strrep("=", 70)))
 cat(sprintf("SWEEP 3: spot rate multiplier  (λ = %.0f, ρ_cross = %.1f, n_inst = %d)\n",
             FIXED_LAMBDA, FIXED_CROSS, N_INST))
-cat(sprintf("  base spot_coef ~ U[3,9]; multiplier scales mean spot rate\n"))
-cat(sprintf("  mean contracted ≈ 7; spot means at 1x=6, 2x=12, 4x=24\n"))
+cat(sprintf("  base spot_coef ~ U[8,12]; multiplier scales mean spot rate\n"))
+cat(sprintf("  mean contracted ≈ 7; spot means at 1x=10, 2x=20, 4x=40\n"))
 cat(strrep("=", 70), "\n\n")
 
 res_spot <- vector("list", length(SPOT_MULT_VALS))
 
 for (si in seq_along(SPOT_MULT_VALS)) {
   sm <- SPOT_MULT_VALS[si]
-  cat(sprintf("  spot_mult = %.1f (mean spot ≈ %.0f) ... ", sm, sm * 6.0))
+  cat(sprintf("  spot_mult = %.1f (mean spot ≈ %.0f) ... ", sm, sm * 10.0))
   flush.console()
 
-  runs <- lapply(instances, run_config,
+  runs <- lapply(instances, run_config_safe,
                  lambda_val = FIXED_LAMBDA,
                  cross_corr = FIXED_CROSS,
                  spot_mult  = sm)
@@ -212,7 +234,7 @@ cat(sprintf("%-10s  %10s  %10s  %10s  %10s  %8s  %8s\n",
 cat(strrep("-", 82), "\n")
 for (r in res_spot)
   cat(sprintf("%-10.1f  %10.1f  %10.1f  %10.1f  %10.1f  %7.2f%%  %7.1fs\n",
-              r$spot_mult, r$spot_mult * 6.0,
+              r$spot_mult, r$spot_mult * 10.0,
               r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
 cat(strrep("=", 82), "\n")
 
@@ -244,7 +266,7 @@ cat("$m$ & $\\bar{c}_{\\rm spot}$ & LB & UB ($\\pm$ sd) & Gap\\% & Train (s) \\\
 cat("\\hline\n")
 for (r in res_spot)
   cat(sprintf("$%.0f\\times$ & $%.0f$ & $%.0f$ & $%.0f \\pm %.0f$ & $%.2f\\%%$ & $%.0f$ \\\\\n",
-              r$spot_mult, r$spot_mult * 6.0,
+              r$spot_mult, r$spot_mult * 10.0,
               r$lb, r$ub, r$ub_sd, r$gap_pct, r$t_train))
 
 ## ── Persist results ───────────────────────────────────────────────────────────
